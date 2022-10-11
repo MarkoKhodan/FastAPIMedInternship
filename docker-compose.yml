@@ -31,6 +31,10 @@ services:
 
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/api
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=api
+      - DB_HOST=db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81

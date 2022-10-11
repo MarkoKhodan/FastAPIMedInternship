@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import init_db
-from models import Test
+
+from database import sql_database, redis_db
+from models.redis_tets import Test
 
 app = FastAPI()
 
@@ -14,8 +15,15 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-async def on_startup():
-    await init_db()
+async def startup():
+
+    await sql_database.connect()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+
+    await sql_database.disconnect()
 
 
 @app.get("/")

@@ -3,4 +3,6 @@ fastapi==0.68.1
 sqlmodel==0.0.4
 uvicorn==0.15.0
 redis_om==0.0.27
+pydantic==1.10.2
+databases==0.6.1
 

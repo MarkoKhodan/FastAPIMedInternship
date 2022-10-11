@@ -1,31 +1,21 @@
-import os
+from os import environ
 
+import databases
 from redis_om import get_redis_connection
-from sqlmodel import SQLModel
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
 
+DB_USER = environ.get("DB_USER", "user")
+DB_PASSWORD = environ.get("DB_PASSWORD", "password")
+DB_HOST = environ.get("DB_HOST", "localhost")
+DB_NAME = "api"
+SQLALCHEMY_DATABASE_URL = (
+    f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
+)
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
-
-engine = create_async_engine(DATABASE_URL, echo=True, future=True)
-
-
-async def init_db():
-    async with engine.begin() as conn:
-
-        await conn.run_sync(SQLModel.metadata.create_all)
-
-
-async def get_session() -> AsyncSession:
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with async_session() as session:
-        yield session
-
+sql_database = databases.Database(SQLALCHEMY_DATABASE_URL)
 
 redis_db = get_redis_connection(
-    host=os.environ.get("REDIS_HOST"),
-    port=os.environ.get("REDIS_PORT"),
-    password=os.environ.get("REDIS_PASSWORD"),
+    host=environ.get("REDIS_HOST"),
+    port=environ.get("REDIS_PORT"),
+    password=environ.get("REDIS_PASSWORD"),
     decode_responses=True,
 )
