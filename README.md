@@ -25,6 +25,6 @@ Docker:
 ```shell
 git clone git@github.com:MarkoKhodan/FastAPIMedInternship.git
 cd FastAPIMedInternship
-docker build -t myimage . 
-docker run -p 8000:8000 -t -i myimage   
+docker-compose build
+docker-compose up
 ```

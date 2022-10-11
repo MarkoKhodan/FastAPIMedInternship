@@ -6,8 +6,6 @@ COPY ./requirements.txt /app/requirements.txt
 
 WORKDIR app
 
-VOLUME ./ /app
-
 EXPOSE 8000
 
 RUN pip install -r requirements.txt
