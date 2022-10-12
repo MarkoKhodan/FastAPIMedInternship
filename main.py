@@ -1,10 +1,14 @@
-from fastapi import FastAPI
+import logging
 from fastapi.middleware.cors import CORSMiddleware
+from quiz.models.redis_tets import Test
+from logging.config import dictConfig
+from fastapi import FastAPI
+from log_conf import log_config
 
-from database import sql_database, redis_db
-from models.redis_tets import Test
+dictConfig(log_config)
+logger = logging.getLogger("quiz-logger")
 
-app = FastAPI()
+app = FastAPI(debug=True)
 
 app.add_middleware(
     CORSMiddleware,
@@ -14,20 +18,9 @@ app.add_middleware(
 )
 
 
-@app.on_event("startup")
-async def startup():
-
-    await sql_database.connect()
-
-
-@app.on_event("shutdown")
-async def shutdown():
-
-    await sql_database.disconnect()
-
-
 @app.get("/")
 async def root():
+    logger.debug("Root is called")
     return {"status": "Working"}
 
 
@@ -37,11 +30,12 @@ async def all():
 
 
 def format(pk: str):
-    test = Test.get(pk)
 
+    test = Test.get(pk)
     return {"id": test.pk, "name": test.name, "quantity": test.quantity}
 
 
 @app.post("/redis_test")
 async def create(test: Test):
+    logger.debug("This added")
     return test.save()
