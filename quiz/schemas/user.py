@@ -12,6 +12,7 @@ def validate_username(username: str) -> str:
 
 
 class UserBase(BaseModel):
+    id: Optional[int]
     email: Optional[EmailStr]
     username: Optional[str]
 
@@ -41,6 +42,5 @@ class UserSignIn(BaseModel):
     password: constr(min_length=7, max_length=100)
 
 
-class UserList(BaseModel):
-    email: Optional[EmailStr]
-    username: Optional[str]
+class UserDelete(BaseModel):
+    pass
