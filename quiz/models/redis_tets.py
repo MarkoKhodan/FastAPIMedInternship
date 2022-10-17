@@ -1,6 +1,5 @@
 from redis_om import HashModel
-from database import redis_db
-
+from core.database import redis_db
 
 
 class Test(HashModel):
@@ -9,5 +8,3 @@ class Test(HashModel):
 
     class Meta:
         database = redis_db
-
-
