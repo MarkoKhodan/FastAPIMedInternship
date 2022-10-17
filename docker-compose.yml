@@ -50,10 +50,12 @@ services:
       - API_AUDIENCE=${API_AUDIENCE}
       - ISSUER=${ISSUER}
       - ALGORITHMS=${ALGORITHMS}
+
     depends_on:
       - db
       - redis
 
 volumes:
-  db:
-    driver: local
+
+    db:
+      driver: local
