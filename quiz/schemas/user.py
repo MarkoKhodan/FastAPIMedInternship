@@ -12,14 +12,15 @@ def validate_username(username: str) -> str:
 
 
 class UserBase(BaseModel):
-    id: Optional[int]
-    email: Optional[EmailStr]
-    username: Optional[str]
+    id: int
+    email: EmailStr
+    username: str
 
 
 class UserCreate(BaseModel):
     email: EmailStr
     password: constr(min_length=7, max_length=100)
+    confirm_password: constr(min_length=7, max_length=100)
     username: str
 
     @validator("username", pre=True)
