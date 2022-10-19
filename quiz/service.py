@@ -1,7 +1,6 @@
 import os
 from functools import wraps
 from random import randint
-
 import jwt
 from fastapi import Security, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -83,10 +82,12 @@ class UserService():
             )
             return payload.get("email")
 
+
     @staticmethod
     def get_user_by_email(email, db: Session = Depends(get_db)):
         user = db.query(User).filter_by(email=email).first()
         return user
+
 
 
 def auth_required(func):
@@ -116,6 +117,7 @@ def auth_required(func):
                 await database.execute(post)
                 authorized = True
         elif UserService.auth_handler.decode_token(jwt_token):
+
             authorized = True
         if authorized is not True:
             return HTTPException(status_code=401, detail="Invalid token")
