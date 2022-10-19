@@ -26,7 +26,10 @@ services:
 
   api:
     build: .
-    command: sh -c "uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    command: >
+      sh -c "alembic revision --autogenerate -m 'first' &&
+             alembic upgrade head &&
+             uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     volumes:
       - ./:/app
 
@@ -34,6 +37,15 @@ services:
       - "8000:8000"
 
     environment:
+
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=api
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+
       - DATABASE_URL=${DATABASE_URL}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -42,6 +54,7 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+
     depends_on:
       - db
       - redis

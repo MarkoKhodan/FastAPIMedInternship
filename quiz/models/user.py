@@ -10,3 +10,6 @@ class User(Base):
     username = Column(String(64), unique=True)
     email = Column(String(64), unique=True)
     password = Column(String(64))
+
+
+users = User.__table__
