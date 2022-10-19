@@ -54,11 +54,18 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - APP_SECRET_STRING=${APP_SECRET_STRING}
+      - DOMAIN=${DOMAIN}
+      - API_AUDIENCE=${API_AUDIENCE}
+      - ISSUER=${ISSUER}
+      - ALGORITHMS=${ALGORITHMS}
+
 
     depends_on:
       - db
       - redis
 
 volumes:
+
     db:
       driver: local

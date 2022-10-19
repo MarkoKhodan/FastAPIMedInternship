@@ -2,7 +2,10 @@ import logging
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import paginate, LimitOffsetPage, Page, add_pagination
 from sqlalchemy.orm import Session
-
+from fastapi import Security
+from fastapi.security import HTTPAuthorizationCredentials
+from core.database import get_db
+from core.database import database
 from core.database import SessionLocal
 from core.database import database
 from quiz.models.redis_tets import Test
@@ -11,7 +14,10 @@ from fastapi import FastAPI, Depends
 from log_conf import log_config
 from quiz.models.user import User
 from quiz.schemas.user import UserBase
+from quiz.service import security, authorize_check
 from routes import routes
+
+
 
 dictConfig(log_config)
 logger = logging.getLogger("quiz-logger")
@@ -34,6 +40,8 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
+
+
 
 
 def get_db():
@@ -64,17 +72,33 @@ async def root():
     return {"status": "Working"}
 
 
-@app.get("/redis_test")
-async def all():
-    return [format(pk) for pk in Test.all_pks()]
 
+@app.get("/api/private")
+async def private(
+    credentials: HTTPAuthorizationCredentials = Security(security),
+    db: Session = Depends(get_db),
+):
+    """A valid access token is required to access this route"""
+    if await authorize_check(credentials=credentials, db=db) is not True:
+        return await authorize_check(credentials=credentials, db=db)
+
+    else:
+        return {"message": "This is private endpoint"}
+
+
+
+# LIST WITH PAGINATION
+@app.get("/users", response_model=Page[UserBase])
+@app.get("/users/limit-offset", response_model=LimitOffsetPage[UserBase])
+def get_users(db: Session = Depends(get_db)):
+    logger.debug(f"User list displayed")
+    return paginate(db.query(User).all())
 
 def format(pk: str):
     test = Test.get(pk)
     return {"id": test.pk, "name": test.name, "quantity": test.quantity}
 
 
-@app.post("/redis_test")
-async def create(test: Test):
-    logger.debug("This added")
-    return test.save()
+
+add_pagination(app)
+app.include_router(routes)

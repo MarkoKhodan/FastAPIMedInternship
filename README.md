@@ -18,6 +18,8 @@ cd FastAPIMedInternship
 python3 -m venv venv
 source venv/Scripts/activate
 pip install -r requirements.txt
+alembic revision --autogenerate -m 'first' 
+alembic upgrade head
 uvicorn main:app --reload
   ```
 
