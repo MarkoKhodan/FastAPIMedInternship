@@ -12,9 +12,11 @@ def validate_username(username: str) -> str:
 
 
 class UserBase(BaseModel):
+
     id: int
     email: EmailStr
     username: str
+
 
 
 class UserCreate(BaseModel):

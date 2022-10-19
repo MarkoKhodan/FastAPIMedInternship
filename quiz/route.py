@@ -9,12 +9,16 @@ from . import service
 from fastapi import APIRouter, HTTPException, Depends, Security
 from quiz.schemas.user import UserBase, UserCreate, UserUpdate, UserSignIn
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
 from .service import create_user
+from . import service
+
+
+
 
 router = APIRouter()
 
 logger = logging.getLogger("quiz-logger")
+
 
 security = HTTPBearer()
 auth_handler = Auth()
@@ -38,6 +42,7 @@ def refresh_token(credentials: HTTPAuthorizationCredentials = Security(security)
     return auth_handler.refresh_token(expired_token)
 
 
+
 @router.get("/{pk}", response_model=UserBase)
 async def user_detail(pk):
     user = await service.get_detail_user(pk)
@@ -53,6 +58,7 @@ async def user_list():
     return await service.get_user_list()
 
 
+
 @router.post("/register", status_code=201, response_model=UserBase)
 async def register(user_details: UserCreate, db: Session = Depends(get_db)):
     user = db.query(User).filter_by(email=user_details.email).first()
@@ -64,6 +70,11 @@ async def register(user_details: UserCreate, db: Session = Depends(get_db)):
         return await create_user(user_details)
     else:
         return HTTPException(status_code=401, detail="Invalid password")
+
+@router.post("/", status_code=201, response_model=UserBase)
+async def user_create(item: UserCreate):
+    logger.debug(f"User created")
+    return await service.create_user(item)
 
 
 @router.put("/{pk}", status_code=201, response_model=UserBase)
@@ -80,7 +91,9 @@ async def user_delete(pk: int):
     user = await service.get_detail_user(pk)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+
     else:
         logger.debug(f"User with id {pk} deleted from database")
         await service.delete_user(pk)
+
 

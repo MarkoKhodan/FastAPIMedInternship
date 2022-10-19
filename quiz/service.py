@@ -1,3 +1,4 @@
+
 from random import randint
 
 from fastapi import Security, Depends
@@ -12,6 +13,7 @@ from quiz.models.user import users, User
 
 security = HTTPBearer()
 auth_handler = Auth()
+
 
 
 def get_data(page: int = 0, limit: int = 50):
@@ -34,6 +36,7 @@ async def get_detail_user(pk: int):
     return None
 
 
+h
 async def create_user(user_details: UserCreate):
     hashed_password = Hasher.get_password_hash(user_details.password)
     user_details.password = hashed_password
@@ -51,6 +54,7 @@ async def create_user(user_details: UserCreate):
     }
 
 
+
 async def update_user(pk: int, item: UserUpdate):
     post = users.update().where(users.c.id == pk).values(**item.dict())
     await database.execute(post)
@@ -60,6 +64,7 @@ async def update_user(pk: int, item: UserUpdate):
 async def delete_user(pk: int):
     user = users.delete().where((users.c.id == pk))
     return await database.execute(user)
+
 
 
 async def authorize_check(
