@@ -8,7 +8,7 @@ from core.database import get_db
 from core.database import database
 from logging.config import dictConfig
 from fastapi import FastAPI, Depends
-from log_conf import log_config
+from core.log_conf import log_config
 from quiz.service import UserService, auth_required
 from routes import routes
 
@@ -44,6 +44,7 @@ async def private(
 ):
 
     return {"message": "This is private endpoint"}
+
 
 add_pagination(app)
 app.include_router(routes)
