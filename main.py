@@ -1,6 +1,6 @@
 import logging
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi_pagination import paginate, LimitOffsetPage, Page, add_pagination
+from fastapi_pagination import add_pagination
 from sqlalchemy.orm import Session
 from fastapi import Security
 from fastapi.security import HTTPAuthorizationCredentials
@@ -12,9 +12,7 @@ from quiz.models.redis_tets import Test
 from logging.config import dictConfig
 from fastapi import FastAPI, Depends
 from log_conf import log_config
-from quiz.models.user import User
-from quiz.schemas.user import UserBase
-from quiz.service import security, authorize_check
+from quiz.service import UserService, auth_required
 from routes import routes
 
 
@@ -74,30 +72,14 @@ async def root():
 
 
 @app.get("/api/private")
+@auth_required
 async def private(
-    credentials: HTTPAuthorizationCredentials = Security(security),
+    credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     db: Session = Depends(get_db),
 ):
-    """A valid access token is required to access this route"""
-    if await authorize_check(credentials=credentials, db=db) is not True:
-        return await authorize_check(credentials=credentials, db=db)
-
-    else:
-        return {"message": "This is private endpoint"}
 
 
-
-# LIST WITH PAGINATION
-@app.get("/users", response_model=Page[UserBase])
-@app.get("/users/limit-offset", response_model=LimitOffsetPage[UserBase])
-def get_users(db: Session = Depends(get_db)):
-    logger.debug(f"User list displayed")
-    return paginate(db.query(User).all())
-
-def format(pk: str):
-    test = Test.get(pk)
-    return {"id": test.pk, "name": test.name, "quantity": test.quantity}
-
+    return {"message": "This is private endpoint"}
 
 
 add_pagination(app)

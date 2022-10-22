@@ -31,7 +31,6 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    email: Optional[EmailStr]
     username: Optional[str]
     password: Optional[constr(min_length=7, max_length=100)]
 

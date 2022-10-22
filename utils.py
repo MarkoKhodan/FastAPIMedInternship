@@ -19,7 +19,7 @@ def set_up():
             "API_AUDIENCE": os.getenv("API_AUDIENCE", "your.audience.com"),
             "ISSUER": os.getenv("ISSUER", "https://your.domain.com/"),
             "ALGORITHMS": os.getenv("ALGORITHMS", "RS256"),
-            }
+        }
     return config
 
 

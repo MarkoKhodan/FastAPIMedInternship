@@ -5,7 +5,8 @@ from datetime import datetime, timedelta
 
 
 class Auth:
-    secret = os.getenv("APP_SECRET_STRING")
+    def __init__(self):
+        self.secret = os.getenv("APP_SECRET_STRING")
 
     def encode_token(self, email):
         payload = {
@@ -32,8 +33,8 @@ class Auth:
                 algorithms=["HS256"],
                 options={"verify_exp": False},
             )
-            username = payload["sub"]
-            new_token = self.encode_token(username)
+            email = payload["sub"]
+            new_token = self.encode_token(email)
             return {"token": new_token}
         except jwt.InvalidTokenError:
             raise HTTPException(status_code=401, detail="Invalid token")
