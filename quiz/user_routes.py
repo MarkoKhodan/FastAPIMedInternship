@@ -22,7 +22,10 @@ router = APIRouter()
 logger = logging.getLogger("quiz-logger")
 
 
-@router.post("/login", response_model=UserLogIn,)
+@router.post(
+    "/login",
+    response_model=UserLogIn,
+)
 async def login(
     user_details: UserSignIn, db: Session = Depends(get_db)
 ) -> UserLogIn | HTTPException:
