@@ -18,12 +18,14 @@ Base = declarative_base()
 database = databases.Database(SQLALCHEMY_DATABASE_URL)
 
 
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
 
 
 redis_db = get_redis_connection(

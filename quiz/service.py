@@ -1,8 +1,12 @@
 from functools import wraps
 from random import randint
+<<<<<<< HEAD
 import logging
 from typing import List
 
+=======
+import jwt
+>>>>>>> origin/develop
 from fastapi import Security, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import EmailStr
@@ -130,10 +134,17 @@ class UserService:
         else:
             email = self.auth_handler.decode_token(token=credentials.credentials)
 
+<<<<<<< HEAD
             return email
 
     async def get_user_by_email(self, email) -> UserBase:
         user = self.db.query(User).filter_by(email=email).first()
+=======
+
+    @staticmethod
+    def get_user_by_email(email, db: Session = Depends(get_db)):
+        user = db.query(User).filter_by(email=email).first()
+>>>>>>> origin/develop
         return user
 
     async def get_current_user(
@@ -230,6 +241,7 @@ class UserService:
         return RequestBase(user=user.id, company=company.id, id=request.id)
 
 
+
 def auth_required(func):
     @wraps(func)
     async def wrapper(
@@ -261,6 +273,7 @@ def auth_required(func):
                 await database.execute(post)
                 authorized = True
         elif UserService.auth_handler.decode_token(jwt_token):
+
             authorized = True
         if authorized is not True:
             raise HTTPException(status_code=401, detail="Invalid token")
