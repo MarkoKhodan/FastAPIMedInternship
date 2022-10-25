@@ -1,2 +1,2 @@
 from .database import Base
-from quiz.models.user import User
+from quiz.models.db_models import User, Company
