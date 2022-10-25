@@ -417,7 +417,7 @@ class CompanyService:
         self.db.commit()
         self.db.refresh(company)
         return HTTPException(
-            status_code=204, detail=f"User with id{user_to_admin_id} added to admins"
+            status_code=200, detail=f"User with id{user_to_admin_id} added to admins"
         )
 
     async def remove_from_admin(
@@ -494,7 +494,7 @@ class CompanyService:
         self.db.commit()
 
         return HTTPException(
-            status_code=204, detail=f"Request from user {user.id} is accepted"
+            status_code=200, detail=f"Request from user {user.id} is accepted"
         )
 
     async def disapprove_request(
@@ -522,5 +522,5 @@ class CompanyService:
         self.db.commit()
 
         return HTTPException(
-            status_code=204, detail=f"Request from user {user.id} is disapproved"
+            status_code=200, detail=f"Request from user {user.id} is disapproved"
         )

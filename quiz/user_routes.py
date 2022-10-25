@@ -1,5 +1,7 @@
 import logging
 from sqlalchemy.orm import Session
+from starlette import status
+
 from core.database import get_db
 from fastapi import APIRouter, HTTPException, Depends, Security
 from quiz.schemas.user import (
@@ -20,7 +22,7 @@ router = APIRouter()
 logger = logging.getLogger("quiz-logger")
 
 
-@router.post("/login", response_model=UserLogIn)
+@router.post("/login", response_model=UserLogIn,)
 async def login(
     user_details: UserSignIn, db: Session = Depends(get_db)
 ) -> UserLogIn | HTTPException:
@@ -78,7 +80,7 @@ async def user_update(
     )
 
 
-@router.delete("/delete", status_code=204)
+@router.delete("/delete", status_code=status.HTTP_204_NO_CONTENT)
 async def user_delete(
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     db: Session = Depends(get_db),
@@ -100,7 +102,7 @@ async def invites_list(
     )
 
 
-@router.post("/invites/{pk}", status_code=200)
+@router.post("/invites/{pk}", status_code=status.HTTP_200_OK)
 async def accept_invite(
     pk: int,
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
@@ -110,9 +112,9 @@ async def accept_invite(
     return await user_repo.accept_invite(invite_id=int(pk), credentials=credentials)
 
 
-@router.post("/invites/disapprove/{pk}", status_code=200)
+@router.post("/invites/disapprove/{pk}", status_code=status.HTTP_200_OK)
 async def disapprove_invite(
-    pk,
+    pk: int,
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     db: Session = Depends(get_db),
 ) -> HTTPException:

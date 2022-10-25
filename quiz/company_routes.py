@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, Security, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from starlette import status
+
 from core.database import get_db
 from quiz.schemas.company import (
     CompanyCreate,
@@ -76,9 +78,9 @@ async def invite_create(
     )
 
 
-@router.post("/delete/{pk}", status_code=204)
+@router.post("/delete/{pk}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_from_company(
-    pk,
+    pk: int,
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     db: Session = Depends(get_db),
 ) -> HTTPException:
@@ -89,9 +91,9 @@ async def remove_from_company(
     )
 
 
-@router.post("/admins/{pk}", status_code=204)
+@router.post("/admins/{pk}", status_code=status.HTTP_200_OK)
 async def add_to_admins(
-    pk,
+    pk: int,
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     db: Session = Depends(get_db),
 ) -> HTTPException:
@@ -102,7 +104,7 @@ async def add_to_admins(
     )
 
 
-@router.post("/admins/delete/{pk}", status_code=204)
+@router.post("/admins/delete/{pk}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_from_admins(
     pk: int,
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
@@ -129,7 +131,7 @@ async def requests_list(
     )
 
 
-@router.post("/request/{pk}", status_code=204)
+@router.post("/request/{pk}", status_code=status.HTTP_200_OK)
 async def accept_request(
     pk: int,
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
@@ -142,7 +144,7 @@ async def accept_request(
     )
 
 
-@router.post("/invites/disapprove/{pk}", status_code=204)
+@router.post("/invites/disapprove/{pk}", status_code=status.HTTP_200_OK)
 async def disapprove_request(
     pk: int,
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
