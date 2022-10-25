@@ -18,6 +18,12 @@ class UserBase(BaseModel):
     username: str
 
 
+class UserInfo(BaseModel):
+    id: int
+    email: EmailStr
+    username: str
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: constr(min_length=7, max_length=100)

@@ -1,13 +1,16 @@
 import logging
 from sqlalchemy.orm import Session
-from core.database import get_db, database
-from core.hashing import Hasher
-from quiz.models.db_models import users, Invite, Company, Request
+from core.database import get_db
 from fastapi import APIRouter, HTTPException, Depends, Security
-from quiz.schemas.user import UserBase, UserCreate, UserUpdate, UserSignIn, UserLogIn
+from quiz.schemas.user import (
+    UserBase,
+    UserCreate,
+    UserUpdate,
+    UserSignIn,
+    UserLogIn,
+    UserInfo,
+)
 from fastapi.security import HTTPAuthorizationCredentials
-
-from .schemas.company import CompanyList
 from .schemas.invite import InviteBase
 from .schemas.request import RequestBase
 from .service import UserService, auth_required
@@ -17,17 +20,12 @@ router = APIRouter()
 logger = logging.getLogger("quiz-logger")
 
 
-@router.post("/login")
+@router.post("/login", response_model=UserLogIn)
 async def login(
     user_details: UserSignIn, db: Session = Depends(get_db)
 ) -> UserLogIn | HTTPException:
-    user = UserService.get_user_by_email(email=user_details.email, db=db)
-    if user is None:
-        return HTTPException(status_code=404, detail="Invalid email")
-    if not Hasher.verify_password(user_details.password, user.password):
-        return HTTPException(status_code=404, detail="Invalid password")
-    token = UserService.auth_handler.encode_token(user.email)
-    return UserLogIn(**{"token": token, "username": user.username, "email": user.email})
+    user_repo = UserService(db=db)
+    return await user_repo.login_user(user_details=user_details)
 
 
 @router.get("/refresh_token")
@@ -38,21 +36,18 @@ def refresh_token(
     return UserService.auth_handler.refresh_token(expired_token)
 
 
-@router.get("/about/{pk}", response_model=UserBase)
-async def user_detail(pk) -> UserBase | HTTPException:
-    user = await UserService.get_detail_user(pk)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    logger.debug(f"User with id {pk} details displayed")
-    return user
+@router.get("/about/{pk}", response_model=UserInfo)
+async def user_detail(pk: int, db: Session = Depends(get_db)) -> UserInfo:
+    user_repo = UserService(db=db)
+    return await user_repo.get_detail_user(pk=pk)
 
 
-@router.get("/")
+@router.get("/", response_model=list[UserInfo])
 async def user_list(
     skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-) -> [UserBase]:
-    logger.debug(f"User list displayed")
-    return await UserService.get_user_list(skip=skip, limit=limit, db=db)
+) -> list[UserInfo]:
+    user_repo = UserService(db=db)
+    return await user_repo.get_user_list(skip=skip, limit=limit)
 
 
 @router.get("/me", response_model=UserBase)
@@ -61,38 +56,25 @@ async def about_me(
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     db: Session = Depends(get_db),
 ) -> UserBase:
-    email = await UserService.get_current_user_email(credentials=credentials)
-    user = await database.fetch_one(query=users.select().where(users.c.email == email))
-    return user
+    user_repo = UserService(db=db)
+    return await user_repo.get_current_user(credentials=credentials)
 
 
-@router.post("/register", status_code=201)
-async def register(
-    user_details: UserCreate, db: Session = Depends(get_db)
-) -> UserBase | HTTPException:
-    user = UserService.get_user_by_email(email=user_details.email, db=db)
-
-    if user:
-        return HTTPException(status_code=401, detail="Account already exists")
-
-    if user_details.confirm_password == user_details.password:
-        logger.debug(f"User created")
-        return await UserService.create_user(user_details)
-    else:
-        return HTTPException(status_code=401, detail="Invalid password")
+@router.post("/register", status_code=201, response_model=UserBase)
+async def register(user_details: UserCreate, db: Session = Depends(get_db)) -> UserBase:
+    user_repo = UserService(db=db)
+    return await user_repo.create_user(user_details=user_details)
 
 
-@router.put("/update", status_code=201)
+@router.put("/update", status_code=201, response_model=UserBase)
 async def user_update(
     user_details: UserUpdate,
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     db: Session = Depends(get_db),
 ) -> UserBase:
-    email = await UserService.get_current_user_email(credentials=credentials)
-    user = UserService.get_user_by_email(email=email, db=db)
-    logger.debug(f"User with id {user.id} updated")
-    return await UserService.update_user(
-        pk=user.id, user_details=user_details, email=email
+    user_repo = UserService(db=db)
+    return await user_repo.update_user(
+        user_details=user_details, credentials=credentials
     )
 
 
@@ -100,92 +82,49 @@ async def user_update(
 async def user_delete(
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     db: Session = Depends(get_db),
-) -> None:
-    email = await UserService.get_current_user_email(credentials=credentials)
-    user = UserService.get_user_by_email(email=email, db=db)
-    logger.debug(f"User with id {user.id} deleted from database")
-    await UserService.delete_user(pk=user.id)
+) -> HTTPException:
+    user_repo = UserService(db=db)
+    return await user_repo.delete_user(credentials=credentials)
 
 
-@router.get("/invites")
+@router.get("/invites", response_model=list[InviteBase])
 async def invites_list(
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
 ) -> [InviteBase]:
-    email = await UserService.get_current_user_email(credentials=credentials)
-    user = UserService.get_user_by_email(email=email, db=db)
-    return await UserService.get_invites_list(user=user, skip=skip, limit=limit, db=db)
-
-
-@router.post("/invites/{pk}")
-async def accept_invite(
-    pk,
-    credentials: HTTPAuthorizationCredentials = Security(UserService.security),
-    db: Session = Depends(get_db),
-) -> dict | HTTPException:
-
-    email = await UserService.get_current_user_email(credentials=credentials)
-    user = UserService.get_user_by_email(email=email, db=db)
-    invite = db.query(Invite).filter_by(id=int(pk)).first()
-
-    if not invite:
-        return HTTPException(status_code=401, detail="Invite doesn't exist")
-
-    if invite.user != user.id:
-        return HTTPException(status_code=401, detail="This is not yours invite")
-
-    company = db.query(Company).filter_by(id=invite.company).first()
-
-    return await UserService.accept_invite(
-        company=company, user=user, db=db, invite_id=invite.id
+    user_repo = UserService(db=db)
+    return await user_repo.get_invites_list(
+        credentials=credentials, skip=skip, limit=limit
     )
 
 
-@router.post("/invites/disapprove/{pk}")
+@router.post("/invites/{pk}", status_code=200)
+async def accept_invite(
+    pk: int,
+    credentials: HTTPAuthorizationCredentials = Security(UserService.security),
+    db: Session = Depends(get_db),
+) -> HTTPException:
+    user_repo = UserService(db=db)
+    return await user_repo.accept_invite(invite_id=int(pk), credentials=credentials)
+
+
+@router.post("/invites/disapprove/{pk}", status_code=200)
 async def disapprove_invite(
     pk,
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     db: Session = Depends(get_db),
-) -> dict | HTTPException:
-
-    email = await UserService.get_current_user_email(credentials=credentials)
-    user = UserService.get_user_by_email(email=email, db=db)
-    invite = db.query(Invite).filter_by(id=int(pk)).first()
-
-    if not invite:
-        return HTTPException(status_code=401, detail="Invite doesn't exist")
-
-    if invite.user != user.id:
-        return HTTPException(status_code=401, detail="This is not yours invite")
-
-    company = db.query(Company).filter_by(id=invite.company).first()
-
-    return await UserService.disapprove_invite(company=company, invite_id=invite.id)
+) -> HTTPException:
+    user_repo = UserService(db=db)
+    return await user_repo.disapprove_invite(invite_id=int(pk), credentials=credentials)
 
 
-@router.post("/request/{pk}")
+@router.post("/request/{pk}", response_model=RequestBase)
 async def request_create(
-    pk,
+    pk: int,
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     db: Session = Depends(get_db),
-) -> RequestBase | HTTPException:
-
-    user_email = await UserService.get_current_user_email(credentials=credentials)
-    user = UserService.get_user_by_email(email=user_email, db=db)
-    company = db.query(Company).filter_by(id=int(pk)).first()
-
-    if not company:
-        return HTTPException(status_code=401, detail="Company with id doesn't exist")
-    if user in company.employees:
-        return HTTPException(status_code=401, detail="You are already in company")
-
-    request = db.query(Request).filter_by(company=company.id, user=user.id).first()
-
-    if request:
-        return HTTPException(
-            status_code=401, detail="You have request already, wait for approve"
-        )
-
-    return await UserService.create_request(user_id=user.id, company_id=int(pk))
+) -> RequestBase:
+    user_repo = UserService(db=db)
+    return await user_repo.create_request(company_id=int(pk), credentials=credentials)

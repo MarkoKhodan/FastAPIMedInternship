@@ -1,9 +1,12 @@
 from functools import wraps
 from random import randint
+import logging
+from typing import List
 
 from fastapi import Security, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import EmailStr
+from sqlalchemy import insert
 from sqlalchemy.orm import Session
 from core.auth import Auth
 from core.hashing import Hasher
@@ -18,7 +21,14 @@ from .schemas.company import (
 )
 from .schemas.invite import InviteBase
 from .schemas.request import RequestBase
-from .schemas.user import UserCreate, UserUpdate, UserBase
+from .schemas.user import (
+    UserCreate,
+    UserUpdate,
+    UserBase,
+    UserSignIn,
+    UserLogIn,
+    UserInfo,
+)
 from core.database import database, get_db
 from quiz.models.db_models import (
     users,
@@ -31,55 +41,84 @@ from quiz.models.db_models import (
     Request,
 )
 
+logger = logging.getLogger("quiz-logger")
+
 
 class UserService:
     security = HTTPBearer()
     auth_handler = Auth()
 
-    @staticmethod
-    async def get_user_list(
-        skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-    ) -> [UserBase]:
-        user_list = db.query(User).offset(skip).limit(limit).all()
+    def __init__(self, db: Session):
+        self.db = db
 
-        return user_list
+    async def login_user(self, user_details: UserSignIn) -> UserLogIn | HTTPException:
+        user = await self.get_user_by_email(email=user_details.email)
+        if user is None:
+            raise HTTPException(status_code=404, detail="Invalid email")
+        if not Hasher.verify_password(user_details.password, user.password):
+            raise HTTPException(status_code=404, detail="Invalid password")
+        token = self.auth_handler.encode_token(user.email)
+        return UserLogIn(token=token, username=user.username, email=user.email)
 
-    @staticmethod
-    async def get_detail_user(pk: int) -> UserBase:
-        user = await database.fetch_one(
-            query=users.select().where(users.c.id == int(pk))
-        )
-        if user is not None:
-            return user
+    async def get_user_list(self, skip: int = 0, limit: int = 100) -> list[UserInfo]:
+        user_list = self.db.query(User).offset(skip).limit(limit).all()
 
-    @staticmethod
-    async def create_user(user_details: UserCreate) -> UserBase:
+        return [
+            UserInfo(id=user.id, email=user.email, username=user.username)
+            for user in user_list
+        ]
+
+    async def get_detail_user(self, pk: int) -> UserInfo:
+        user = self.db.query(User).filter_by(id=int(pk)).first()
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        return UserInfo(id=user.id, email=user.email, username=user.username)
+
+    async def create_user(self, user_details: UserCreate) -> UserBase:
+        user = await self.get_user_by_email(email=user_details.email)
+
+        if user:
+            raise HTTPException(status_code=401, detail="Account already exists")
+
+        if user_details.confirm_password != user_details.password:
+            raise HTTPException(status_code=401, detail="Invalid password")
+
         hashed_password = Hasher.get_password_hash(user_details.password)
         user_details.password = hashed_password
-        post = users.insert().values(
-            username=user_details.username,
+        new_user = User(
             email=user_details.email,
-            password=user_details.password,
+            username=user_details.username,
+            password=hashed_password,
         )
-        pk = await database.execute(post)
 
-        return UserBase(**{**user_details.dict(), "id": pk})
+        self.db.add(new_user)
+        self.db.commit()
+        return UserBase(**user_details.dict(), id=new_user.id)
 
-    @staticmethod
-    async def update_user(pk: int, email, user_details: UserUpdate) -> UserBase:
+    async def update_user(
+        self, user_details: UserUpdate, credentials: HTTPAuthorizationCredentials
+    ) -> UserBase:
+        user = await self.get_current_user(credentials=credentials)
         hashed_password = Hasher.get_password_hash(user_details.password)
         user_details.password = hashed_password
-        post = users.update().where(users.c.id == pk).values(**user_details.dict())
-        await database.execute(post)
-        return UserBase(**{**user_details.dict(), "email": email, "id": pk})
+        user = self.db.query(User).filter_by(id=user.id).first()
+        user.update(**user_details.dict())
+        self.db.commit()
+        logger.debug(f"User with id {user.id} updated")
+        return UserBase(**user_details.dict(), email=user.email, id=user.id)
 
-    @staticmethod
-    async def delete_user(pk: int) -> None:
-        user = users.delete().where((users.c.id == pk))
-        return await database.execute(user)
+    async def delete_user(
+        self, credentials: HTTPAuthorizationCredentials
+    ) -> HTTPException:
+        user_details = await self.get_current_user(credentials=credentials)
+        user = self.db.query(User).filter_by(id=user_details.id).first()
+        self.db.delete(user)
+        self.db.commit()
+        logger.debug(f"User with id {user.id} deleted")
+        return HTTPException(status_code=204, detail=f"User with id{user.id} deleted")
 
-    @staticmethod
     async def get_current_user_email(
+        self,
         credentials: HTTPAuthorizationCredentials = Security(security),
     ) -> EmailStr:
 
@@ -89,55 +128,106 @@ class UserService:
             return email
 
         else:
-            email = UserService.auth_handler.decode_token(token=credentials.credentials)
+            email = self.auth_handler.decode_token(token=credentials.credentials)
 
             return email
 
-    @staticmethod
-    def get_user_by_email(email, db: Session = Depends(get_db)) -> UserBase:
-        user = db.query(User).filter_by(email=email).first()
+    async def get_user_by_email(self, email) -> UserBase:
+        user = self.db.query(User).filter_by(email=email).first()
         return user
 
-    @staticmethod
-    async def get_invites_list(
-        user, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-    ) -> [InviteBase]:
-
-        invites_list = (
-            db.query(Invite).filter_by(user=user.id).offset(skip).limit(limit).all()
+    async def get_current_user(
+        self, credentials: HTTPAuthorizationCredentials
+    ) -> UserBase:
+        email = await self.get_current_user_email(credentials=credentials)
+        user = await self.get_user_by_email(email=email)
+        return UserBase(
+            id=user.id, password=user.password, email=user.email, username=user.username
         )
-        return invites_list
 
-    @staticmethod
-    async def accept_invite(company, user, db, invite_id) -> dict:
+    async def get_invites_list(
+        self, credentials: HTTPAuthorizationCredentials, skip: int = 0, limit: int = 100
+    ) -> list[InviteBase]:
+        user = await self.get_current_user(credentials=credentials)
+        invites_list = (
+            self.db.query(Invite)
+            .filter_by(user=user.id)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        return [InviteBase(**invite.dict()) for invite in invites_list]
+
+    async def accept_invite(
+        self, invite_id: int, credentials: HTTPAuthorizationCredentials
+    ) -> HTTPException:
+        user = await self.get_user_by_email(
+            await self.get_current_user_email(credentials)
+        )
+        invite = self.db.query(Invite).filter_by(id=invite_id).first()
+
+        if not invite:
+            raise HTTPException(status_code=401, detail="Invite doesn't exist")
+
+        if invite.user != user.id:
+            raise HTTPException(status_code=401, detail="This is not yours invite")
+
+        company = self.db.query(Company).filter_by(id=invite.company).first()
         company.employees.append(user)
-        db.add(company)
-        db.commit()
-        db.refresh(company)
-        invite = invites.delete().where((invites.c.id == invite_id))
-        await database.execute(invite)
-        return {"message": f"Welcome to {company.name} company"}
+        self.db.add(company)
+        self.db.commit()
+        self.db.refresh(company)
+        invite = self.db.query(Invite).filter_by(id=invite_id).first()
+        self.db.delete(invite)
+        self.db.commit()
+        return HTTPException(
+            status_code=200, detail=f"Welcome to {company.name} company"
+        )
 
-    @staticmethod
-    async def disapprove_invite(company, invite_id) -> dict:
-        invite = invites.delete().where((invites.c.id == invite_id))
-        await database.execute(invite)
-        return {"message": f"Invite from company {company.name} is disapproved"}
+    async def disapprove_invite(
+        self, invite_id: int, credentials: HTTPAuthorizationCredentials
+    ) -> HTTPException:
+        user = await self.get_user_by_email(
+            await self.get_current_user_email(credentials)
+        )
+        invite = self.db.query(Invite).filter_by(id=invite_id).first()
 
-    @staticmethod
-    async def create_request(user_id: int, company_id: int) -> RequestBase:
+        if not invite:
+            raise HTTPException(status_code=401, detail="Invite doesn't exist")
 
-        post = requests.insert().values(company=company_id, user=user_id)
+        if invite.user != user.id:
+            raise HTTPException(status_code=401, detail="This is not yours invite")
+        company = self.db.query(Company).filter_by(id=invite.company).first()
+        invite = self.db.query(Invite).filter_by(id=invite_id).first()
+        self.db.delete(invite)
+        self.db.commit()
+        return HTTPException(
+            status_code=200, detail=f"Invite from company {company.name} is disapproved"
+        )
 
-        pk = await database.execute(post)
-        return RequestBase(**{"id": pk, "company": company_id, "user": user_id})
+    async def create_request(
+        self, company_id: int, credentials: HTTPAuthorizationCredentials
+    ) -> RequestBase:
+        user = await self.get_current_user(credentials=credentials)
+        company = self.db.query(Company).filter_by(id=company_id).first()
 
-    @staticmethod
-    async def get_companies_list(
-        skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-    ) -> [CompanyList]:
-        # company_list = db.query(Company).where(visibility=True).offset(skip).limit(limit).all()
-        return company_list
+        if not company:
+            raise HTTPException(status_code=401, detail="Company with id doesn't exist")
+        if user in company.employees:
+            raise HTTPException(status_code=401, detail="You are already in company")
+
+        request = (
+            self.db.query(Request).filter_by(company=company.id, user=user.id).first()
+        )
+
+        if request:
+            raise HTTPException(
+                status_code=401, detail="You have request already, wait for approve"
+            )
+        request = Request(user=user.id, company=company.id)
+        self.db.add(request)
+        self.db.commit()
+        return RequestBase(user=user.id, company=company.id, id=request.id)
 
 
 def auth_required(func):
@@ -173,119 +263,264 @@ def auth_required(func):
         elif UserService.auth_handler.decode_token(jwt_token):
             authorized = True
         if authorized is not True:
-            return HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail="Invalid token")
         return await func(credentials, db, *args, **kwargs)
 
     return wrapper
 
 
 class CompanyService:
-    @staticmethod
+    def __init__(self, db: Session):
+        self.db = db
+
     async def get_company_list(
-        skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-    ) -> [CompanyBase]:
+        self, skip: int = 0, limit: int = 100
+    ) -> list[CompanyBase]:
         company_list = (
-            db.query(Company).filter_by(visibility=True).offset(skip).limit(limit).all()
-        )
-        return company_list
-
-    @staticmethod
-    async def create_company(
-        company_details: CompanyCreate, user, db: Session = Depends(get_db)
-    ) -> HTTPException | CompanyCreated:
-        company = db.query(Company).filter_by(name=company_details.name).first()
-        if company:
-            return HTTPException(
-                status_code=401, detail="Company with name already created"
-            )
-
-        post = companies.insert().values(
-            name=company_details.name,
-            description=company_details.description,
-            owner=user.id,
-            visibility=True,
-        )
-        pk = await database.execute(post)
-        return CompanyCreated(**{**company_details.dict(), "id": pk, "owner": user.id})
-
-    @staticmethod
-    async def update_company(
-        company_details: CompanyUpdate, company, user
-    ) -> CompanyUpdated:
-        post = (
-            companies.update()
-            .where(companies.c.id == company.id)
-            .values(**company_details.dict())
-        )
-        await database.execute(post)
-        return CompanyUpdated(
-            **{**company_details.dict(), "id": company.id, "owner": user.id}
-        )
-
-    @staticmethod
-    async def delete_company(company_id: int) -> None:
-        company = companies.delete().where((companies.c.id == company_id))
-        return await database.execute(company)
-
-    @staticmethod
-    async def create_invite(user_to_invite_id: int, company_id: int) -> InviteBase:
-
-        post = invites.insert().values(company=company_id, user=user_to_invite_id)
-
-        pk = await database.execute(post)
-        return InviteBase(
-            **{"id": pk, "company": company_id, "user": user_to_invite_id}
-        )
-
-    @staticmethod
-    async def remove_from_company(company, user_to_remove, db) -> dict:
-        company.employees.remove(user_to_remove)
-        db.add(company)
-        db.commit()
-        db.refresh(company)
-        return {"message": f"User with id {user_to_remove.id} is removed from company"}
-
-    @staticmethod
-    async def add_to_admin(company, user_to_add, db) -> dict:
-        company.admins.append(user_to_add)
-        db.add(company)
-        db.commit()
-        db.refresh(company)
-        return {"message": f"User with id {user_to_add.id} is added to admins"}
-
-    @staticmethod
-    async def remove_from_admin(company, user_to_remove, db) -> dict:
-        company.admins.remove(user_to_remove)
-        db.add(company)
-        db.commit()
-        db.refresh(company)
-        return {"message": f"User with id {user_to_remove.id} is removed from admins"}
-
-    @staticmethod
-    async def get_request_list(
-        company_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-    ) -> [InviteBase]:
-        request_list = (
-            db.query(Request)
-            .filter_by(company=company_id)
+            self.db.query(Company)
+            .filter_by(visibility=True)
             .offset(skip)
             .limit(limit)
             .all()
         )
-        return request_list
+        return [
+            CompanyBase(
+                id=company.id,
+                name=company.name,
+                description=company.description,
+                visibility=company.visibility,
+                owner=company.owner,
+                employees=company.employees,
+            )
+            for company in company_list
+        ]
 
-    @staticmethod
-    async def accept_request(company, user, db, request_id) -> dict:
+    async def create_company(
+        self,
+        user_repo: UserService,
+        company_details: CompanyCreate,
+        credentials: HTTPAuthorizationCredentials,
+    ) -> CompanyCreated:
+        user = await user_repo.get_current_user(credentials=credentials)
+        user_company = self.db.query(Company).filter_by(owner=user.id).first()
+        if user_company:
+            raise HTTPException(status_code=401, detail="You already have company")
+        company = self.db.query(Company).filter_by(name=company_details.name).first()
+        if company:
+            raise HTTPException(
+                status_code=401, detail="Company with name already created"
+            )
+        company_to_create = Company(**company_details.dict(), owner=user.id)
+        self.db.add(company_to_create)
+        self.db.commit()
+        return CompanyCreated(
+            **company_details.dict(), id=company_to_create.id, owner=user.id
+        )
+
+    async def update_company(
+        self,
+        company_details: CompanyUpdate,
+        user_repo: UserService,
+        credentials: HTTPAuthorizationCredentials,
+    ) -> CompanyUpdated:
+        user = await user_repo.get_current_user(credentials=credentials)
+        company = self.db.query(Company).filter_by(owner=user.id).first()
+        if not company:
+            raise HTTPException(status_code=401, detail="You don't have company yet")
+        company = self.db.query(Company).filter_by(id=company.id).first()
+        company.update(**company_details.dict())
+        self.db.commit()
+        return CompanyUpdated(**company_details.dict(), id=company.id, owner=user.id)
+
+    async def delete_company(
+        self, user_repo: UserService, credentials: HTTPAuthorizationCredentials
+    ) -> HTTPException:
+        user = await user_repo.get_current_user(credentials=credentials)
+        company = self.db.query(Company).filter_by(owner=user.id).first()
+        if not company:
+            raise HTTPException(status_code=401, detail="You don't have company yet")
+        self.db.delete(company)
+        self.db.commit()
+        return HTTPException(
+            status_code=204, detail=f"Company with id{company.id} deleted"
+        )
+
+    async def create_invite(
+        self,
+        user_repo: UserService,
+        user_to_invite_id: int,
+        credentials: HTTPAuthorizationCredentials,
+    ) -> InviteBase:
+        user = await user_repo.get_current_user(credentials=credentials)
+        user_to_invite = self.db.query(User).filter_by(id=user_to_invite_id).first()
+        company = self.db.query(Company).filter_by(owner=user.id).first()
+        invite = (
+            self.db.query(Invite)
+            .filter_by(company=company.id, user=user_to_invite_id)
+            .first()
+        )
+        if not user_to_invite:
+            raise HTTPException(status_code=401, detail="User with id doesn't exist")
+        if user_to_invite in company.employees:
+            raise HTTPException(status_code=401, detail="User already in company")
+        if not company:
+            raise HTTPException(status_code=401, detail="You don't have company yet")
+        if invite:
+            raise HTTPException(status_code=401, detail="User already invited")
+
+        invite = Invite(user=user_to_invite_id, company=company.id)
+        self.db.add(invite)
+        self.db.commit()
+        return InviteBase(id=invite.id, company=invite.company, user=invite.user)
+
+    async def remove_from_company(
+        self,
+        user_repo: UserService,
+        credentials: HTTPAuthorizationCredentials,
+        user_to_remove_id: int,
+    ) -> HTTPException:
+        user = await user_repo.get_current_user(credentials=credentials)
+        user_to_remove = self.db.query(User).filter_by(id=user_to_remove_id).first()
+        company = self.db.query(Company).filter_by(owner=user.id).first()
+        if user_to_remove not in company.employees:
+            raise HTTPException(status_code=401, detail="User with id isn't in company")
+        if not company:
+            raise HTTPException(status_code=401, detail="You don't have company yet")
+        company.employees.remove(user_to_remove)
+        self.db.add(company)
+        self.db.commit()
+        self.db.refresh(company)
+        return HTTPException(
+            status_code=204,
+            detail=f"User with id{user_to_remove_id} removed from company",
+        )
+
+    async def add_to_admin(
+        self,
+        user_repo: UserService,
+        credentials: HTTPAuthorizationCredentials,
+        user_to_admin_id: int,
+    ) -> HTTPException:
+        user = await user_repo.get_current_user(credentials=credentials)
+        user_to_add = self.db.query(User).filter_by(id=user_to_admin_id).first()
+        company = self.db.query(Company).filter_by(owner=user.id).first()
+
+        if user_to_add not in company.employees:
+            raise HTTPException(status_code=401, detail="User with id isn't in compony")
+        if user_to_add in company.admins:
+            raise HTTPException(status_code=401, detail="User is already admin")
+        if not company:
+            raise HTTPException(status_code=401, detail="You don't have company yet")
+
+        company.admins.append(user_to_add)
+        self.db.add(company)
+        self.db.commit()
+        self.db.refresh(company)
+        return HTTPException(
+            status_code=204, detail=f"User with id{user_to_admin_id} added to admins"
+        )
+
+    async def remove_from_admin(
+        self,
+        user_repo: UserService,
+        credentials: HTTPAuthorizationCredentials,
+        user_to_remove_id: int,
+    ) -> HTTPException:
+        user = await user_repo.get_current_user(credentials=credentials)
+        user_to_remove = self.db.query(User).filter_by(id=user_to_remove_id).first()
+        company = self.db.query(Company).filter_by(owner=user.id).first()
+
+        if user_to_remove not in company.admins:
+            raise HTTPException(status_code=401, detail="User with id isn't in admins")
+
+        if not company:
+            raise HTTPException(status_code=401, detail="You don't have company yet")
+
+        company.admins.remove(user_to_remove)
+        self.db.add(company)
+        self.db.commit()
+        self.db.refresh(company)
+        return HTTPException(
+            status_code=204,
+            detail=f"User with id {user_to_remove.id} is removed from admins",
+        )
+
+    async def get_request_list(
+        self,
+        user_repo: UserService,
+        credentials: HTTPAuthorizationCredentials,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list[RequestBase]:
+        user = await user_repo.get_current_user(credentials=credentials)
+        company = self.db.query(Company).filter_by(owner=user.id).first()
+        request_list = (
+            self.db.query(Request)
+            .filter_by(company=company.id)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        return [
+            RequestBase(id=request.id, user=request.user, company=request.company)
+            for request in request_list
+        ]
+
+    async def accept_request(
+        self,
+        user_repo: UserService,
+        credentials: HTTPAuthorizationCredentials,
+        request_id: int,
+    ) -> HTTPException:
+        owner = await user_repo.get_current_user(credentials=credentials)
+        request = self.db.query(Request).filter_by(id=request_id).first()
+        company = self.db.query(Company).filter_by(owner=owner.id).first()
+
+        if not request:
+            raise HTTPException(status_code=401, detail="Request doesn't exist")
+
+        if request.company != company.id:
+            raise HTTPException(
+                status_code=401, detail="This is not yours company request"
+            )
+
+        user = self.db.query(User).filter_by(id=request.user).first()
         company.employees.append(user)
-        db.add(company)
-        db.commit()
-        db.refresh(company)
-        request = requests.delete().where(requests.c.id == request_id)
-        await database.execute(request)
-        return {"message": f"Request from user {user.id} is accepted"}
+        self.db.add(company)
+        self.db.commit()
+        self.db.refresh(company)
+        request = self.db.query(Request).filter_by(id=request_id).first()
+        self.db.delete(request)
+        self.db.commit()
 
-    @staticmethod
-    async def disapprove_request(user_id, request_id) -> dict:
-        request = requests.delete().where((requests.c.id == request_id))
-        await database.execute(request)
-        return {"message": f"Invite from user {user_id} is disapproved"}
+        return HTTPException(
+            status_code=204, detail=f"Request from user {user.id} is accepted"
+        )
+
+    async def disapprove_request(
+        self,
+        user_repo: UserService,
+        credentials: HTTPAuthorizationCredentials,
+        request_id: int,
+    ) -> HTTPException:
+
+        owner = await user_repo.get_current_user(credentials=credentials)
+        request = self.db.query(Request).filter_by(id=request_id).first()
+        company = self.db.query(Company).filter_by(owner=owner.id).first()
+
+        if not request:
+            raise HTTPException(status_code=401, detail="Request doesn't exist")
+
+        if request.company != company.id:
+            raise HTTPException(
+                status_code=401, detail="This is not yours company request"
+            )
+
+        user = self.db.query(User).filter_by(id=request.user).first()
+        request = self.db.query(Request).filter_by(id=request_id).first()
+        self.db.delete(request)
+        self.db.commit()
+
+        return HTTPException(
+            status_code=204, detail=f"Request from user {user.id} is disapproved"
+        )

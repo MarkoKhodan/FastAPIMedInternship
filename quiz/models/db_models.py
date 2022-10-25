@@ -33,6 +33,10 @@ class User(Base):
         "Company", secondary=company_admins, back_populates="admins"
     )
 
+    def update(self, username: str, password: str):
+        self.username = username
+        self.password = password
+
 
 class Company(Base):
     __tablename__ = "companies"
@@ -53,6 +57,11 @@ class Company(Base):
         "User", secondary=company_admins, back_populates="is_admin_in"
     )
 
+    def update(self, name: str, description: str, visibility: bool):
+        self.name = name
+        self.description = description
+        self.visibility = visibility
+
 
 class Invite(Base):
     __tablename__ = "invites"
@@ -60,11 +69,6 @@ class Invite(Base):
     id = Column(Integer, primary_key=True, index=True, unique=True)
     company = Column(Integer, ForeignKey("companies.id"))
     user = Column(Integer, ForeignKey("users.id"))
-
-
-users = User.__table__
-companies = Company.__table__
-invites = Invite.__table__
 
 
 class Request(Base):
