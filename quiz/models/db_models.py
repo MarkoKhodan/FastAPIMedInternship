@@ -109,7 +109,7 @@ class Answer(Base):
 
     id = Column(Integer, primary_key=True, index=True, unique=True)
     answer_text = Column(String(255), nullable=False)
-    is_correct = Column(Boolean, nullable=False, unique=False)
+    is_correct = Column(Boolean, nullable=False)
     question = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"))
 
     def update(self, answer_text: str, is_correct: bool):

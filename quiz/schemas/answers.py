@@ -5,7 +5,7 @@ class AnswerBase(BaseModel):
     id: int
     answer_text: str
     is_correct: bool
-    question: int
+    question_id: int
 
 
 class AnswerCreate(BaseModel):

@@ -16,7 +16,7 @@ def validate_answers(answers: conlist(AnswerCreate)) -> conlist(AnswerCreate):
 class QuestionBase(BaseModel):
     id: int
     question_title: str
-    quiz: int
+    quiz_id: int
 
 
 class QuestionCreate(BaseModel):

@@ -14,7 +14,7 @@ from .schemas.company import (
     CompanyBase,
     CompanyCreated,
     CompanyUpdated,
-    )
+)
 from .schemas.invite import InviteBase
 from .schemas.quiz import QuizCreate, QuizUpdate, QuizList
 from .schemas.request import RequestBase
@@ -270,6 +270,10 @@ class CompanyService:
     def __init__(self, db: Session):
         self.db = db
 
+    async def get_company_by_id(self, id: int) -> Company:
+        company = self.db.query(Company).filter_by(id=id).first()
+        return company
+
     async def get_company_list(
         self, skip: int = 0, limit: int = 100
     ) -> list[CompanyBase]:
@@ -524,42 +528,37 @@ class CompanyService:
 
 
 class QuizService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, credentials: HTTPAuthorizationCredentials):
         self.db = db
+        self.user_service = UserService(self.db)
+        self.company_service = CompanyService(self.db)
+        self.credentials = credentials
 
-    async def create_quiz(
-        self,
-        quiz_info: QuizCreate,
-        credentials: HTTPAuthorizationCredentials,
-        user_repo: UserService,
-        company_id: int,
-    ) -> QuizList:
-        company = self.db.query(Company).filter_by(id=company_id).first()
-        user = await user_repo.get_current_user(credentials=credentials)
+    async def check_if_company_exist_and_usr_have_rights(
+        self, company: Company
+    ) -> None:
+        user = await self.user_service.get_current_user(credentials=self.credentials)
         if not company:
             raise HTTPException(
-                status_code=401, detail=f"Company with id {company_id} doesn't exist"
+                status_code=401, detail=f"Company with given id doesn't exist"
             )
         if not user.id == company.owner and user.id not in company.admins:
             raise HTTPException(
                 status_code=401,
                 detail="You don't have rights to add quizes in this company",
             )
-        quiz = (
-            self.db.query(Quiz)
-            .filter_by(title=quiz_info.title, company=company_id)
-            .first()
-        )
-        if quiz:
-            raise HTTPException(
-                status_code=401, detail="Quiz with this name already existed"
-            )
-        quiz = Quiz(
-            title=quiz_info.title, description=quiz_info.description, company=company_id
-        )
-        self.db.add(quiz)
-        self.db.commit()
 
+    async def check_quiz_exist_in_company(self, quiz_id: int, company_id: int) -> None:
+        quiz = self.db.query(Quiz).filter_by(id=quiz_id, company=company_id).first()
+        if not quiz:
+            raise HTTPException(
+                status_code=401,
+                detail=f"Quiz with id {quiz_id} not found in your company",
+            )
+
+    async def add_questions_and_answers_to_quiz(
+        self, quiz_info: QuizCreate, quiz: Quiz
+    ):
         for question in quiz_info.questions:
             question_to_add = Question(
                 question_title=question.question_title, quiz=quiz.id
@@ -575,43 +574,9 @@ class QuizService:
                 self.db.add(answer_to_add)
                 self.db.commit()
 
-        return QuizList(
-            id=quiz.id,
-            title=quiz.title,
-            description=quiz.description,
-            company=quiz.company,
-        )
-
-    async def update_quiz(
-        self,
-        quiz_info: QuizUpdate,
-        quiz_id: int,
-        credentials: HTTPAuthorizationCredentials,
-        user_repo: UserService,
-        company_id: int,
-    ) -> QuizList:
-        company = self.db.query(Company).filter_by(id=company_id).first()
-        user = await user_repo.get_current_user(credentials=credentials)
-        if not company:
-            raise HTTPException(
-                status_code=401, detail=f"Company with id {company_id} doesn't exist"
-            )
-        if not user.id == company.owner and user.id not in company.admins:
-            raise HTTPException(
-                status_code=401,
-                detail="You don't have rights to update quiz in this company",
-            )
-        quiz = self.db.query(Quiz).filter_by(id=quiz_id, company=company_id).first()
-        if not quiz:
-            raise HTTPException(
-                status_code=401,
-                detail=f"Quiz with id {quiz_id} not found in your company",
-            )
-
-        quiz = self.db.query(Quiz).filter_by(id=quiz_id, company=company_id).first()
-        quiz.update(title=quiz_info.title, description=quiz_info.description)
-        self.db.commit()
-
+    async def update_questions_and_answers_in_quiz(
+        self, quiz_info: QuizUpdate, quiz: Quiz
+    ):
         for question in quiz_info.questions:
             question_to_add = self.db.query(Question).filter_by(quiz=quiz.id).first()
             question_to_add.update(question_title=question.question_title)
@@ -625,6 +590,54 @@ class QuizService:
                 )
                 self.db.commit()
 
+    async def create_quiz(
+        self,
+        quiz_info: QuizCreate,
+        company_id: int,
+    ) -> QuizList:
+        company = await self.company_service.get_company_by_id(id=company_id)
+        await self.check_if_company_exist_and_usr_have_rights(company=company)
+        quiz = (
+            self.db.query(Quiz)
+            .filter_by(title=quiz_info.title, company=company_id)
+            .first()
+        )
+        if quiz:
+            raise HTTPException(
+                status_code=401, detail="Quiz with this name already existed"
+            )
+        quiz = Quiz(
+            title=quiz_info.title, description=quiz_info.description, company=company_id
+        )
+        self.db.add(quiz)
+        self.db.commit()
+
+        await self.add_questions_and_answers_to_quiz(quiz_info=quiz_info, quiz=quiz)
+
+        return QuizList(
+            id=quiz.id,
+            title=quiz.title,
+            description=quiz.description,
+            company=quiz.company,
+        )
+
+    async def update_quiz(
+        self,
+        quiz_info: QuizUpdate,
+        quiz_id: int,
+        company_id: int,
+    ) -> QuizList:
+        company = await self.company_service.get_company_by_id(id=company_id)
+        await self.check_if_company_exist_and_usr_have_rights(company=company)
+
+        await self.check_quiz_exist_in_company(quiz_id=quiz_id, company_id=company_id)
+
+        quiz = self.db.query(Quiz).filter_by(id=quiz_id, company=company_id).first()
+        quiz.update(title=quiz_info.title, description=quiz_info.description)
+        self.db.commit()
+
+        await self.update_questions_and_answers_in_quiz(quiz_info=quiz_info, quiz=quiz)
+
         return QuizList(
             id=quiz.id,
             title=quiz.title,
@@ -635,27 +648,12 @@ class QuizService:
     async def delete_quiz(
         self,
         quiz_id: int,
-        credentials: HTTPAuthorizationCredentials,
-        user_repo: UserService,
         company_id: int,
     ) -> HTTPException:
-        company = self.db.query(Company).filter_by(id=company_id).first()
-        user = await user_repo.get_current_user(credentials=credentials)
-        if not company:
-            raise HTTPException(
-                status_code=401, detail=f"Company with id {company_id} doesn't exist"
-            )
-        if not user.id == company.owner and user.id not in company.admins:
-            raise HTTPException(
-                status_code=401,
-                detail="You don't have rights to delete quiz in this company",
-            )
-        quiz = self.db.query(Quiz).filter_by(id=quiz_id, company=company_id).first()
-        if not quiz:
-            raise HTTPException(
-                status_code=401,
-                detail=f"Quiz with id {quiz_id} not found in your company",
-            )
+        company = await self.company_service.get_company_by_id(id=company_id)
+
+        await self.check_if_company_exist_and_usr_have_rights(company=company)
+        await self.check_quiz_exist_in_company(quiz_id=quiz_id, company_id=company_id)
 
         quiz = self.db.query(Quiz).filter_by(id=quiz_id, company=company_id).first()
         self.db.delete(quiz)

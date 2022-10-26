@@ -17,14 +17,11 @@ async def quiz_create(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
 ) -> QuizList:
-    user_repo = UserService(db=db)
-    quiz_repo = QuizService(db=db)
+    quiz_repo = QuizService(db=db, credentials=credentials)
 
     return await quiz_repo.create_quiz(
         quiz_info=quiz_info,
-        user_repo=user_repo,
         company_id=int(pk),
-        credentials=credentials,
     )
 
 
@@ -36,15 +33,12 @@ async def quiz_update(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
 ) -> QuizList:
-    user_repo = UserService(db=db)
-    quiz_repo = QuizService(db=db)
+    quiz_repo = QuizService(db=db, credentials=credentials)
 
     return await quiz_repo.update_quiz(
         quiz_info=quiz_info,
-        user_repo=user_repo,
         company_id=int(company_id),
         quiz_id=int(quiz_id),
-        credentials=credentials,
     )
 
 
@@ -55,14 +49,11 @@ async def quiz_update(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
 ) -> HTTPException:
-    user_repo = UserService(db=db)
-    quiz_repo = QuizService(db=db)
+    quiz_repo = QuizService(db=db, credentials=credentials)
 
     return await quiz_repo.delete_quiz(
-        user_repo=user_repo,
         company_id=int(company_id),
         quiz_id=int(quiz_id),
-        credentials=credentials,
     )
 
 
