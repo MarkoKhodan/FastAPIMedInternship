@@ -79,6 +79,44 @@ class Request(Base):
     user = Column(Integer, ForeignKey("users.id"))
 
 
+class Quiz(Base):
+    __tablename__ = "quizzes"
+
+    id = Column(Integer, primary_key=True, index=True, unique=True)
+    title = Column(String(64), nullable=False)
+    description = Column(String(255), nullable=False)
+    passing_frequency = Column(Integer)
+    company = Column(Integer, ForeignKey("companies.id"))
+
+    def update(self, title: str, description: str):
+        self.title = title
+        self.description = description
+
+
+class Question(Base):
+    __tablename__ = "questions"
+
+    id = Column(Integer, primary_key=True, index=True, unique=True)
+    question_title = Column(String(255), nullable=False)
+    quiz = Column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"))
+
+    def update(self, question_title: str):
+        self.question_title = question_title
+
+
+class Answer(Base):
+    __tablename__ = "answers"
+
+    id = Column(Integer, primary_key=True, index=True, unique=True)
+    answer_text = Column(String(255), nullable=False)
+    is_correct = Column(Boolean, nullable=False)
+    question = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"))
+
+    def update(self, answer_text: str, is_correct: bool):
+        self.answer_text = answer_text
+        self.is_correct = is_correct
+
+
 users = User.__table__
 companies = Company.__table__
 invites = Invite.__table__
