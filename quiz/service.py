@@ -4,10 +4,13 @@ import logging
 from fastapi import Security, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import EmailStr
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from core.auth import Auth
 from core.hashing import Hasher
 from core.utils import VerifyToken
+from .schemas.Result import ResultBase
+from .schemas.answers import AnswerRead
 from .schemas.company import (
     CompanyCreate,
     CompanyUpdate,
@@ -16,7 +19,8 @@ from .schemas.company import (
     CompanyUpdated,
 )
 from .schemas.invite import InviteBase
-from .schemas.quiz import QuizCreate, QuizUpdate, QuizList
+from .schemas.questions import QuestionRead, QuestionPass, QuestionAnswerRead
+from .schemas.quiz import QuizCreate, QuizUpdate, QuizList, QuizRead, QuizPass
 from .schemas.request import RequestBase
 from .schemas.user import (
     UserCreate,
@@ -26,7 +30,7 @@ from .schemas.user import (
     UserLogIn,
     UserInfo,
 )
-from core.database import database, get_db
+from core.database import database, get_db, redis_db
 from quiz.models.db_models import (
     users,
     User,
@@ -36,6 +40,7 @@ from quiz.models.db_models import (
     Answer,
     Question,
     Quiz,
+    Result,
 )
 
 logger = logging.getLogger("quiz-logger")
@@ -129,7 +134,7 @@ class UserService:
 
             return email
 
-    async def get_user_by_email(self, email) -> UserBase:
+    async def get_user_by_email(self, email) -> User:
         user = self.db.query(User).filter_by(email=email).first()
         return user
 
@@ -561,7 +566,7 @@ class QuizService:
     ):
         for question in quiz_info.questions:
             question_to_add = Question(
-                question_title=question.question_title, quiz=quiz.id
+                question_title=question.question_title, quiz_id=quiz.id
             )
             self.db.add(question_to_add)
             self.db.commit()
@@ -569,7 +574,7 @@ class QuizService:
                 answer_to_add = Answer(
                     answer_text=answer.answer_text,
                     is_correct=answer.is_correct,
-                    question=question_to_add.id,
+                    question_id=question_to_add.id,
                 )
                 self.db.add(answer_to_add)
                 self.db.commit()
@@ -681,3 +686,142 @@ class QuizService:
             )
             for quiz in quiz_list
         ]
+
+    async def get_quiz_read(self, quiz_id: int) -> QuizRead:
+        quiz = self.db.query(Quiz).filter_by(id=quiz_id).first()
+        return QuizRead(
+            id=quiz.id,
+            title=quiz.title,
+            description=quiz.description,
+            questions=[
+                QuestionRead(
+                    id=question.id,
+                    question_title=question.question_title,
+                    answers=[
+                        AnswerRead(id=answer.id, answer_text=answer.answer_text)
+                        for answer in question.answers
+                    ],
+                )
+                for question in quiz.questions
+            ],
+        )
+
+    @staticmethod
+    async def check_if_all_questions_passed(
+        quiz_answers: QuizPass, questions_quantity: int
+    ) -> None:
+        if len(quiz_answers.answers) < questions_quantity:
+            raise HTTPException(
+                status_code=401,
+                detail="You should give answer for all questions in quiz",
+            )
+
+    async def validate_answers(self, quiz: Quiz, answer: QuestionPass) -> None:
+        if answer.question_id not in [question.id for question in quiz.questions]:
+            raise HTTPException(
+                status_code=401, detail="Not valid question id for this quiz"
+            )
+        answers_in_question = (
+            self.db.query(Answer).filter_by(question_id=answer.question_id).all()
+        )
+        if answer.choosed_answer_id not in [
+            answer.id for answer in answers_in_question
+        ]:
+            raise HTTPException(
+                status_code=401, detail="Not valid answer id for question"
+            )
+
+    async def create_quiz_result(
+        self, correct_answers: int, questions_quantity: int, user: User, quiz: Quiz
+    ) -> Result:
+
+        quiz_result = correct_answers / questions_quantity * 100
+
+        previous_result = (
+            self.db.query(Result)
+            .filter_by(user=user.id, quiz_id=quiz.id)
+            .order_by(desc("created_at"))
+            .first()
+        )
+        if previous_result:
+            attempt = previous_result.attempt + 1
+            total_correct_answers = previous_result.correct_answers + correct_answers
+            average_result = (
+                total_correct_answers / (len(quiz.questions) * attempt)
+            ) * 100
+            result = Result(
+                user=user.id,
+                company=quiz.company,
+                result=quiz_result,
+                attempt=attempt,
+                correct_answers=total_correct_answers,
+                average_result=average_result,
+                quiz_id=quiz.id,
+            )
+        else:
+            result = Result(
+                user=user.id,
+                company=quiz.company,
+                result=quiz_result,
+                attempt=1,
+                correct_answers=correct_answers,
+                average_result=quiz_result,
+                quiz_id=quiz.id,
+            )
+        self.db.add(result)
+        self.db.commit()
+        user.correct_answers += correct_answers
+        user.passed_questions += questions_quantity
+        self.db.commit()
+        self.db.refresh(user)
+        user.average_result = user.correct_answers / user.passed_questions * 100
+        self.db.commit()
+
+        return result
+
+    async def pass_quiz(self, quiz_id: int, quiz_answers: QuizPass) -> ResultBase:
+        email = await self.user_service.get_current_user_email(self.credentials)
+        user = await self.user_service.get_user_by_email(email=email)
+        quiz = self.db.query(Quiz).filter_by(id=quiz_id).first()
+        correct_answers = 0
+        questions_quantity = len(quiz.questions)
+
+        await self.check_if_all_questions_passed(
+            quiz_answers=quiz_answers, questions_quantity=questions_quantity
+        )
+
+        for answer in quiz_answers.answers:
+            await self.validate_answers(quiz=quiz, answer=answer)
+
+            answer = (
+                self.db.query(Answer).filter_by(id=answer.choosed_answer_id).first()
+            )
+            if answer.is_correct:
+                correct_answers += 1
+            await redis_db.set(
+                f"{user.id}:{answer.question.id}", answer.answer_text, ex=172800
+            )
+
+        result = await self.create_quiz_result(
+            correct_answers=correct_answers,
+            questions_quantity=questions_quantity,
+            user=user,
+            quiz=quiz,
+        )
+
+        return ResultBase(
+            id=result.id,
+            user=result.user,
+            company=result.company,
+            result=result.result,
+            quiz_id=result.quiz_id,
+            attempt=result.attempt,
+            average_result=result.average_result,
+            created_at=result.created_at,
+        )
+
+    async def get_answer_from_redis(self, question_id: int) -> QuestionAnswerRead:
+        user = await self.user_service.get_current_user(self.credentials)
+        key = f"{str(user.id)}:{str(question_id)}"
+        answer = await redis_db.get(key)
+        return QuestionAnswerRead(id=question_id, answer=answer)

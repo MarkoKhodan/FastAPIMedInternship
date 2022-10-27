@@ -1,6 +1,6 @@
 from pydantic import BaseModel, conlist, validator
 
-from quiz.schemas.answers import AnswerCreate
+from quiz.schemas.answers import AnswerCreate, AnswerRead
 
 
 def validate_answers(answers: conlist(AnswerCreate)) -> conlist(AnswerCreate):
@@ -28,3 +28,19 @@ class QuestionCreate(BaseModel):
         cls, answers: conlist(AnswerCreate)
     ) -> conlist(AnswerCreate):
         return validate_answers(answers)
+
+
+class QuestionRead(BaseModel):
+    id: int
+    question_title: str
+    answers: conlist(AnswerRead)
+
+
+class QuestionPass(BaseModel):
+    question_id: int
+    choosed_answer_id: int
+
+
+class QuestionAnswerRead(BaseModel):
+    id: int
+    answer: str

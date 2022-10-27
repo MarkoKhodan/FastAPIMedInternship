@@ -1,4 +1,14 @@
-from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, Table
+from sqlalchemy import (
+    Column,
+    String,
+    Integer,
+    Boolean,
+    ForeignKey,
+    Table,
+    Float,
+    TIMESTAMP,
+    func,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import expression
 
@@ -26,6 +36,9 @@ class User(Base):
     username = Column(String(64), unique=True)
     email = Column(String(64), unique=True)
     password = Column(String(64))
+    passed_questions = Column(Integer, default=0)
+    correct_answers = Column(Integer, default=0)
+    average_result = Column(Float)
     companies = relationship(
         "Company", secondary=company_user, back_populates="employees"
     )
@@ -87,6 +100,8 @@ class Quiz(Base):
     description = Column(String(255), nullable=False)
     passing_frequency = Column(Integer)
     company = Column(Integer, ForeignKey("companies.id"))
+    questions = relationship("Question", back_populates="quiz")
+    results = relationship("Result", back_populates="quiz")
 
     def update(self, title: str, description: str):
         self.title = title
@@ -98,7 +113,9 @@ class Question(Base):
 
     id = Column(Integer, primary_key=True, index=True, unique=True)
     question_title = Column(String(255), nullable=False)
-    quiz = Column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"))
+    quiz_id = Column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"))
+    quiz = relationship("Quiz", back_populates="questions")
+    answers = relationship("Answer", back_populates="question")
 
     def update(self, question_title: str):
         self.question_title = question_title
@@ -110,11 +127,27 @@ class Answer(Base):
     id = Column(Integer, primary_key=True, index=True, unique=True)
     answer_text = Column(String(255), nullable=False)
     is_correct = Column(Boolean, nullable=False)
-    question = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"))
+    question_id = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"))
+    question = relationship("Question", back_populates="answers")
 
     def update(self, answer_text: str, is_correct: bool):
         self.answer_text = answer_text
         self.is_correct = is_correct
+
+
+class Result(Base):
+    __tablename__ = "results"
+
+    id = Column(Integer, primary_key=True, index=True, unique=True)
+    user = Column(Integer, ForeignKey("users.id"))
+    company = Column(Integer, ForeignKey("companies.id"))
+    quiz_id = Column(Integer, ForeignKey("quizzes.id"))
+    quiz = relationship("Quiz", back_populates="results")
+    result = Column(Float, nullable=False)
+    correct_answers = Column(Integer, nullable=False)
+    attempt = Column(Integer, nullable=False)
+    average_result = Column(Float, nullable=False)
+    created_at = Column(TIMESTAMP, default=func.now())
 
 
 users = User.__table__
