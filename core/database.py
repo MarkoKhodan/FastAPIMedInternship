@@ -18,6 +18,7 @@ Base = declarative_base()
 database = databases.Database(SQLALCHEMY_DATABASE_URL)
 
 
+
 def get_db():
     db = SessionLocal()
     try:
@@ -25,8 +26,8 @@ def get_db():
     finally:
         db.close()
 
-
 host = environ.get("REDIS_HOST")
 port = environ.get("REDIS_PORT")
 password = environ.get("REDIS_PASSWORD")
 redis_db = aioredis.from_url(f"redis://{host}:{port}/{password}", decode_responses=True)
+
