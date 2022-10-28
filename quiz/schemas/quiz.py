@@ -52,10 +52,14 @@ class QuizUpdate(BaseModel):
         return validate_question(questions)
 
 
-class QuizRead(BaseModel):
+class QuizInfo(BaseModel):
     id: int
     title: str
     description: str
+
+
+class QuizQuestions(BaseModel):
+    id: int
     questions: conlist(QuestionRead)
 
 

@@ -4,14 +4,15 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from core.database import get_db
-from quiz.schemas.Result import ResultBase
+from quiz.schemas.questions import QuestionAnswerRead
+from quiz.schemas.result import ResultBase
 from quiz.schemas.quiz import (
     QuizCreate,
-    QuizBase,
     QuizUpdate,
     QuizList,
-    QuizRead,
+    QuizInfo,
     QuizPass,
+    QuizQuestions,
 )
 from quiz.service import UserService, QuizService
 
@@ -74,11 +75,18 @@ async def quiz_list(
     )
 
 
-@router.get("/read/{quiz_id}", response_model=QuizRead)
-async def quiz_read(
+@router.get("/info/{quiz_id}", response_model=QuizInfo)
+async def quiz_info(
     quiz_id: int, quiz_repo: QuizService = Depends(get_quiz_service)
-) -> QuizRead:
-    return await quiz_repo.get_quiz_read(quiz_id=quiz_id)
+) -> QuizInfo:
+    return await quiz_repo.get_quiz_info(quiz_id=quiz_id)
+
+
+@router.get("/read_question/{quiz_id}", response_model=QuizQuestions)
+async def quiz_read_question(
+    quiz_id: int, quiz_repo: QuizService = Depends(get_quiz_service)
+) -> QuizQuestions:
+    return await quiz_repo.get_quiz_questions(quiz_id=quiz_id)
 
 
 @router.post("/pass/{quiz_id}", response_model=ResultBase)
@@ -90,9 +98,9 @@ async def quiz_pass(
     return await quiz_repo.pass_quiz(quiz_id=quiz_id, quiz_answers=quiz_answers)
 
 
-@router.get("/get_last_answer/{question_id}")
+@router.get("/get_last_answer/{question_id}", response_model=QuestionAnswerRead)
 async def redis_test(
     question_id: int, quiz_repo: QuizService = Depends(get_quiz_service)
-):
+) -> QuestionAnswerRead:
 
     return await quiz_repo.get_answer_from_redis(question_id=question_id)

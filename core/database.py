@@ -26,9 +26,7 @@ def get_db():
         db.close()
 
 
-host = (environ.get("REDIS_HOST"),)
-port = (environ.get("REDIS_PORT"),)
-password = (environ.get("REDIS_PASSWORD"),)
-
-
-redis_db = aioredis.from_url(f"redis://localhost:6379/", decode_responses=True)
+host = environ.get("REDIS_HOST")
+port = environ.get("REDIS_PORT")
+password = environ.get("REDIS_PASSWORD")
+redis_db = aioredis.from_url(f"redis://{host}:{port}/{password}", decode_responses=True)

@@ -1,8 +1,8 @@
 """first
 
-Revision ID: b84e99acf19a
+Revision ID: 6605504ac7ba
 Revises: 
-Create Date: 2022-10-27 23:52:39.652801
+Create Date: 2022-10-29 01:57:43.189605
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'b84e99acf19a'
+revision = '6605504ac7ba'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -37,7 +37,7 @@ def upgrade() -> None:
     sa.Column('description', sa.String(length=255), nullable=True),
     sa.Column('visibility', sa.Boolean(), server_default=sa.text('true'), nullable=False),
     sa.Column('owner', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['owner'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['owner'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )
@@ -60,8 +60,8 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('company', sa.Integer(), nullable=True),
     sa.Column('user', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['company'], ['companies.id'], ),
-    sa.ForeignKeyConstraint(['user'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['company'], ['companies.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_invites_id'), 'invites', ['id'], unique=True)
@@ -70,8 +70,8 @@ def upgrade() -> None:
     sa.Column('title', sa.String(length=64), nullable=False),
     sa.Column('description', sa.String(length=255), nullable=False),
     sa.Column('passing_frequency', sa.Integer(), nullable=True),
-    sa.Column('company', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['company'], ['companies.id'], ),
+    sa.Column('company_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['company_id'], ['companies.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_quizzes_id'), 'quizzes', ['id'], unique=True)
@@ -79,8 +79,8 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('company', sa.Integer(), nullable=True),
     sa.Column('user', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['company'], ['companies.id'], ),
-    sa.ForeignKeyConstraint(['user'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['company'], ['companies.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_requests_id'), 'requests', ['id'], unique=True)
@@ -94,17 +94,17 @@ def upgrade() -> None:
     op.create_index(op.f('ix_questions_id'), 'questions', ['id'], unique=True)
     op.create_table('results',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('user', sa.Integer(), nullable=True),
-    sa.Column('company', sa.Integer(), nullable=True),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('company_id', sa.Integer(), nullable=True),
     sa.Column('quiz_id', sa.Integer(), nullable=True),
     sa.Column('result', sa.Float(), nullable=False),
     sa.Column('correct_answers', sa.Integer(), nullable=False),
-    sa.Column('attempt', sa.Integer(), nullable=False),
+    sa.Column('attempts', sa.Integer(), nullable=False),
     sa.Column('average_result', sa.Float(), nullable=False),
     sa.Column('created_at', sa.TIMESTAMP(), nullable=True),
-    sa.ForeignKeyConstraint(['company'], ['companies.id'], ),
-    sa.ForeignKeyConstraint(['quiz_id'], ['quizzes.id'], ),
-    sa.ForeignKeyConstraint(['user'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['company_id'], ['companies.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['quiz_id'], ['quizzes.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_results_id'), 'results', ['id'], unique=True)

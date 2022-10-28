@@ -64,7 +64,7 @@ class Company(Base):
         nullable=False,
         default=True,
     )
-    owner = Column(Integer, ForeignKey("users.id"))
+    owner = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     employees = relationship("User", secondary=company_user, back_populates="companies")
     admins = relationship(
         "User", secondary=company_admins, back_populates="is_admin_in"
@@ -80,16 +80,16 @@ class Invite(Base):
     __tablename__ = "invites"
 
     id = Column(Integer, primary_key=True, index=True, unique=True)
-    company = Column(Integer, ForeignKey("companies.id"))
-    user = Column(Integer, ForeignKey("users.id"))
+    company = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"))
+    user = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
 
 
 class Request(Base):
     __tablename__ = "requests"
 
     id = Column(Integer, primary_key=True, index=True, unique=True)
-    company = Column(Integer, ForeignKey("companies.id"))
-    user = Column(Integer, ForeignKey("users.id"))
+    company = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"))
+    user = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
 
 
 class Quiz(Base):
@@ -99,7 +99,7 @@ class Quiz(Base):
     title = Column(String(64), nullable=False)
     description = Column(String(255), nullable=False)
     passing_frequency = Column(Integer)
-    company = Column(Integer, ForeignKey("companies.id"))
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"))
     questions = relationship("Question", back_populates="quiz")
     results = relationship("Result", back_populates="quiz")
 
@@ -139,13 +139,13 @@ class Result(Base):
     __tablename__ = "results"
 
     id = Column(Integer, primary_key=True, index=True, unique=True)
-    user = Column(Integer, ForeignKey("users.id"))
-    company = Column(Integer, ForeignKey("companies.id"))
-    quiz_id = Column(Integer, ForeignKey("quizzes.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"))
+    quiz_id = Column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"))
     quiz = relationship("Quiz", back_populates="results")
     result = Column(Float, nullable=False)
     correct_answers = Column(Integer, nullable=False)
-    attempt = Column(Integer, nullable=False)
+    attempts = Column(Integer, nullable=False)
     average_result = Column(Float, nullable=False)
     created_at = Column(TIMESTAMP, default=func.now())
 

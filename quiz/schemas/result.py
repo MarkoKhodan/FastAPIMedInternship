@@ -9,6 +9,6 @@ class ResultBase(BaseModel):
     company: int
     result: int
     quiz_id: int
-    attempt: int
+    attempts: int
     average_result: float
     created_at: datetime
