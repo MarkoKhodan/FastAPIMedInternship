@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel, conlist, validator
 
-from quiz.schemas.questions import QuestionCreate
+from quiz.schemas.questions import QuestionCreate, QuestionRead, QuestionPass
 
 
 def validate_question(questions: conlist(QuestionCreate)) -> conlist(QuestionCreate):
@@ -50,3 +50,18 @@ class QuizUpdate(BaseModel):
         cls, questions: conlist(QuestionCreate)
     ) -> conlist(QuestionCreate):
         return validate_question(questions)
+
+
+class QuizInfo(BaseModel):
+    id: int
+    title: str
+    description: str
+
+
+class QuizQuestions(BaseModel):
+    id: int
+    questions: conlist(QuestionRead)
+
+
+class QuizPass(BaseModel):
+    answers: list[QuestionPass]

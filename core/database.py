@@ -1,6 +1,6 @@
 from os import environ
+import aioredis
 import databases
-from redis_om import get_redis_connection
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -26,11 +26,8 @@ def get_db():
     finally:
         db.close()
 
+host = environ.get("REDIS_HOST")
+port = environ.get("REDIS_PORT")
+password = environ.get("REDIS_PASSWORD")
+redis_db = aioredis.from_url(f"redis://{host}:{port}/{password}", decode_responses=True)
 
-
-redis_db = get_redis_connection(
-    host=environ.get("REDIS_HOST"),
-    port=environ.get("REDIS_PORT"),
-    password=environ.get("REDIS_PASSWORD"),
-    decode_responses=True,
-)

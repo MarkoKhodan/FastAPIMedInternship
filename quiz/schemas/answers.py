@@ -11,3 +11,12 @@ class AnswerBase(BaseModel):
 class AnswerCreate(BaseModel):
     answer_text: str
     is_correct: bool
+
+
+class AnswerRead(BaseModel):
+    id: int
+    answer_text: str
+
+
+class AnswerChoose(BaseModel):
+    id: int
