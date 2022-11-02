@@ -142,7 +142,6 @@ class UserService:
 
         else:
             email = self.auth_handler.decode_token(token=credentials.credentials)
-
             return email
 
     async def get_user_by_email(self, email) -> User:
@@ -243,6 +242,7 @@ class UserService:
         return RequestBase(user=user.id, company=company.id, id=request.id)
 
 
+
 def auth_required(func):
     @wraps(func)
     async def wrapper(
@@ -276,6 +276,7 @@ def auth_required(func):
                 authorized = True
 
         elif UserService.auth_handler.decode_token(jwt_token):
+
             authorized = True
         if authorized is not True:
             raise HTTPException(status_code=401, detail="Invalid token")
