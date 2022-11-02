@@ -1,7 +1,11 @@
+import io
+
+import pandas as pandas
 from fastapi import APIRouter, Security, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from starlette import status
+from starlette.responses import StreamingResponse, FileResponse
 
 from core.database import get_db
 from quiz.schemas.questions import QuestionAnswerRead
@@ -98,9 +102,34 @@ async def quiz_pass(
     return await quiz_repo.pass_quiz(quiz_id=quiz_id, quiz_answers=quiz_answers)
 
 
-@router.get("/get_last_answer/{question_id}", response_model=QuestionAnswerRead)
+@router.get("/get_my_answers/", status_code=status.HTTP_200_OK)
 async def redis_test(
-    question_id: int, quiz_repo: QuizService = Depends(get_quiz_service)
-) -> QuestionAnswerRead:
+    quiz_repo: QuizService = Depends(get_quiz_service),
+) -> FileResponse:
 
-    return await quiz_repo.get_answer_from_redis(question_id=question_id)
+    return await quiz_repo.get_user_answers_from_redis()
+
+
+@router.get("/get_all_answers_for_company/{company_id}", status_code=status.HTTP_200_OK)
+async def redis_test(
+    company_id: int, quiz_repo: QuizService = Depends(get_quiz_service)
+) -> FileResponse:
+
+    return await quiz_repo.get_all_company_user_answers_from_redis(
+        company_id=company_id
+    )
+
+
+@router.get(
+    "/get_answers_for_company_employee/{company_id}/{employee_id}",
+    status_code=status.HTTP_200_OK,
+)
+async def redis_test(
+    company_id: int,
+    employee_id: int,
+    quiz_repo: QuizService = Depends(get_quiz_service),
+) -> FileResponse:
+
+    return await quiz_repo.get_company_employee_answers_from_redis(
+        company_id=company_id, employee_id=employee_id
+    )

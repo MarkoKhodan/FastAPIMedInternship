@@ -13,4 +13,5 @@ PyJWT==2.5.0
 passlib==1.7.4
 SQLAlchemy==1.4.41
 cryptography==38.0.1
+aiofiles==22.1.0
 

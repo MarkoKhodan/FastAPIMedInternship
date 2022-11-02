@@ -69,6 +69,7 @@ class Company(Base):
     admins = relationship(
         "User", secondary=company_admins, back_populates="is_admin_in"
     )
+    quizzes = relationship("Quiz", back_populates="companies")
 
     def update(self, name: str, description: str, visibility: bool):
         self.name = name
@@ -102,6 +103,7 @@ class Quiz(Base):
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"))
     questions = relationship("Question", back_populates="quiz")
     results = relationship("Result", back_populates="quiz")
+    companies = relationship("Company", back_populates="quizzes")
 
     def update(self, title: str, description: str):
         self.title = title

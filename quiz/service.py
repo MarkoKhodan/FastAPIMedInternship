@@ -1,3 +1,5 @@
+import csv
+import io
 from functools import wraps
 from random import randint
 import logging
@@ -6,6 +8,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import EmailStr
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
+from starlette.responses import StreamingResponse, FileResponse
+
 from core.auth import Auth
 from core.hashing import Hasher
 from core.utils import VerifyToken
@@ -883,12 +887,107 @@ class QuizService:
             created_at=result.created_at,
         )
 
-    async def get_answer_from_redis(self, question_id: int) -> QuestionAnswerRead:
-        user = await self.user_service.get_current_user(self.credentials)
-        key = f"{str(user.id)}:{str(question_id)}"
-        answer = await redis_db.get(key)
-        if not answer:
+    async def writo_to_csv(self, headers: list, answers: list) -> None:
+        with open("answers.csv", "w") as f:
+            w = csv.writer(f)
+            w.writerow(headers)
+            w.writerows(answers)
+
+    async def validate_user_and_company(self, company: Company, user: User) -> None:
+        if not company:
             raise HTTPException(
-                status_code=401, detail="You didn't ask for that question yet"
+                status_code=401, detail="Company with given id not exist"
             )
-        return QuestionAnswerRead(id=question_id, answer=answer)
+        if user.id != company.owner and user not in company.admins:
+            raise HTTPException(
+                status_code=401, detail="You don't have right to download file"
+            )
+
+    async def get_user_answers_from_redis(self) -> FileResponse:
+        user = await self.user_service.get_current_user(self.credentials)
+        all_keys = await redis_db.keys()
+        all_user_answers = []
+        for key in all_keys:
+            if key.split(":")[0] == str(user.id):
+                key = f"{str(user.id)}:{key.split(':')[1]}"
+                all_user_answers.append([key.split(":")[1], await redis_db.get(key)])
+
+        await self.writo_to_csv(
+            headers=["Question_id", "Answer"], answers=all_user_answers
+        )
+
+        return FileResponse(
+            "./answers.csv",
+            media_type="application/octet-stream",
+            filename="answers.csv",
+        )
+
+    async def get_all_company_user_answers_from_redis(
+        self, company_id: int
+    ) -> FileResponse:
+        email = await self.user_service.get_current_user_email(self.credentials)
+        user = await self.user_service.get_user_by_email(email=email)
+        company = self.db.query(Company).filter_by(id=company_id).first()
+        await self.validate_user_and_company(company=company, user=user)
+        all_keys = await redis_db.keys()
+        answers = []
+        for key in all_keys:
+            user_from_key = (
+                self.db.query(User).filter_by(id=int(key.split(":")[0])).first()
+            )
+            if user_from_key in company.employees:
+                question_id = key.split(":")[1]
+                question = self.db.query(Question).filter_by(id=question_id).first()
+                if question.quiz in company.quizzes:
+                    key = f"{user_from_key.id}:{question_id}"
+                    answers.append(
+                        [user_from_key.id, key.split(":")[1], await redis_db.get(key)]
+                    )
+
+        await self.writo_to_csv(
+            headers=["User_id", "Question_id", "Answer"], answers=answers
+        )
+
+        return FileResponse(
+            "./answers.csv",
+            media_type="application/octet-stream",
+            filename="answers.csv",
+        )
+
+    async def get_company_employee_answers_from_redis(
+        self, company_id: int, employee_id: int
+    ) -> FileResponse:
+        email = await self.user_service.get_current_user_email(self.credentials)
+        user = await self.user_service.get_user_by_email(email=email)
+        company = self.db.query(Company).filter_by(id=company_id).first()
+        employee = self.db.query(User).filter_by(id=employee_id).first()
+        await self.validate_user_and_company(company=company, user=user)
+        if not employee or employee not in company.employees:
+            raise HTTPException(
+                status_code=401,
+                detail="User with id not in your company or doesn't exsist",
+            )
+        all_keys = await redis_db.keys()
+        answers = []
+        for key in all_keys:
+            user_from_key = (
+                self.db.query(User).filter_by(id=int(key.split(":")[0])).first()
+            )
+            if user_from_key == employee:
+                question_id = key.split(":")[1]
+                question = self.db.query(Question).filter_by(id=question_id).first()
+                if question.quiz in company.quizzes:
+                    key = f"{user_from_key.id}:{question_id}"
+                    answers.append(
+                        [user_from_key.id, key.split(":")[1], await redis_db.get(key)]
+                    )
+
+        await self.writo_to_csv(
+            headers=["User_id", "Question_id", "Answer"], answers=answers
+        )
+
+        return FileResponse(
+            "./answers.csv",
+            media_type="application/octet-stream",
+            filename="answers.csv",
+        )
