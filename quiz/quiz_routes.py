@@ -1,14 +1,9 @@
-import io
-
-import pandas as pandas
 from fastapi import APIRouter, Security, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from starlette import status
-from starlette.responses import StreamingResponse, FileResponse
-
+from starlette.responses import FileResponse
 from core.database import get_db
-from quiz.schemas.questions import QuestionAnswerRead
 from quiz.schemas.result import ResultBase
 from quiz.schemas.quiz import (
     QuizCreate,

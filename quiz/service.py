@@ -1,5 +1,5 @@
 import csv
-import io
+from datetime import datetime
 from functools import wraps
 from random import randint
 import logging
@@ -8,12 +8,18 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import EmailStr
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
-from starlette.responses import StreamingResponse, FileResponse
+from starlette.responses import FileResponse
 
 from core.auth import Auth
 from core.hashing import Hasher
 from core.utils import VerifyToken
-from .schemas.result import ResultBase
+from .schemas.result import (
+    ResultBase,
+    QuizResultAvarage,
+    UserResultAvarage,
+    UserQuizResultAvarage,
+    UserQuizLastActivity,
+)
 from .schemas.answers import AnswerRead
 from .schemas.company import (
     CompanyCreate,
@@ -21,9 +27,10 @@ from .schemas.company import (
     CompanyBase,
     CompanyCreated,
     CompanyUpdated,
+    CompanyUserLastActivity,
 )
 from .schemas.invite import InviteBase
-from .schemas.questions import QuestionRead, QuestionPass, QuestionAnswerRead
+from .schemas.questions import QuestionRead, QuestionPass
 from .schemas.quiz import (
     QuizCreate,
     QuizUpdate,
@@ -40,10 +47,10 @@ from .schemas.user import (
     UserSignIn,
     UserLogIn,
     UserInfo,
+    UserAverageResult,
 )
-from core.database import database, get_db, redis_db
+from core.database import get_db, redis_db
 from quiz.models.db_models import (
-    users,
     User,
     Company,
     Invite,
@@ -992,3 +999,129 @@ class QuizService:
             media_type="application/octet-stream",
             filename="answers.csv",
         )
+
+
+class AnalyticService:
+    def __init__(self, db: Session, credentials: HTTPAuthorizationCredentials):
+        self.db = db
+        self.user_service = UserService(self.db)
+        self.company_service = CompanyService(self.db)
+        self.credentials = credentials
+
+    @staticmethod
+    async def validate_user(user: User, company: Company) -> None:
+        if user.id != company.owner and user not in company.admins:
+            raise HTTPException(
+                status_code=401, detail="You don't have rights to process request"
+            )
+
+    async def get_last_activity(self, user: User) -> datetime:
+        result_with_last_activity = (
+            self.db.query(Result)
+            .filter_by(user_id=user.id)
+            .order_by(desc("created_at"))
+            .first()
+        )
+        return result_with_last_activity.created_at
+
+    async def get_quiz_average_results(self, quiz_id: int) -> list[QuizResultAvarage]:
+        email = await self.user_service.get_current_user_email(self.credentials)
+        user = await self.user_service.get_user_by_email(email=email)
+        quiz = self.db.query(Quiz).filter_by(id=quiz_id).first()
+        company = self.db.query(Company).filter_by(id=quiz.company_id).first()
+        await self.validate_user(user=user, company=company)
+        results = self.db.query(Result).filter_by(quiz_id=quiz_id).order_by("user_id")
+
+        return [
+            QuizResultAvarage(
+                user_id=result.user_id,
+                average_result=result.average_result,
+                created_at=result.created_at,
+            )
+            for result in results
+        ]
+
+    async def get_employee_avarege_results(
+        self, company_id: int, user_id: int
+    ) -> list[UserResultAvarage]:
+        email = await self.user_service.get_current_user_email(self.credentials)
+        user = await self.user_service.get_user_by_email(email=email)
+        company = self.db.query(Company).filter_by(id=company_id).first()
+        if not company:
+            raise HTTPException(status_code=401, detail="Company doesn't exist")
+        await self.validate_user(user=user, company=company)
+        employee = self.db.query(User).filter_by(id=user_id).first()
+        if not employee:
+            raise HTTPException(status_code=401, detail="User doesn't exist")
+
+        results = (
+            self.db.query(Result)
+            .filter_by(user_id=employee.id, company_id=company.id)
+            .order_by("quiz_id")
+        )
+
+        return [
+            UserResultAvarage(
+                quiz_id=result.quiz_id,
+                average_result=result.average_result,
+                created_at=result.created_at,
+            )
+            for result in results
+        ]
+
+    async def get_employee_last_activity_list(
+        self, company_id: int
+    ) -> list[CompanyUserLastActivity]:
+        email = await self.user_service.get_current_user_email(self.credentials)
+        user = await self.user_service.get_user_by_email(email=email)
+        company = self.db.query(Company).filter_by(id=company_id).first()
+        if not company:
+            raise HTTPException(status_code=401, detail="Company doesn't exist")
+        await self.validate_user(user=user, company=company)
+
+        return [
+            CompanyUserLastActivity(
+                user_id=employee.id,
+                last_activity=await self.get_last_activity(user=employee),
+            )
+            for employee in company.employees
+        ]
+
+    async def get_user_average_result(self, user_id: int) -> UserAverageResult:
+        user = self.db.query(User).filter_by(id=user_id).first()
+        return UserAverageResult(user_id=user.id, average_result=user.average_result)
+
+    async def get_user_average_quiz_result(
+        self, quiz_id: int
+    ) -> list[UserQuizResultAvarage]:
+        email = await self.user_service.get_current_user_email(self.credentials)
+        user = await self.user_service.get_user_by_email(email=email)
+        results = (
+            self.db.query(Result)
+            .filter_by(quiz_id=quiz_id, user_id=user.id)
+            .order_by("id")
+        )
+
+        return [
+            UserQuizResultAvarage(
+                average_result=result.average_result, created_at=result.created_at
+            )
+            for result in results
+        ]
+
+    async def get_list_quizzes_last_activity(self) -> list[UserQuizLastActivity]:
+        email = await self.user_service.get_current_user_email(self.credentials)
+        user = await self.user_service.get_user_by_email(email=email)
+        all_results = self.db.query(Result).filter_by(user_id=user.id).all()
+        results = {}
+        for result in all_results:
+            if result.quiz_id in results:
+                if result.created_at > results[result.quiz_id]:
+                    results[result.quiz_id] = result.created_at
+            else:
+                results[result.quiz_id] = result.created_at
+
+        return [
+            UserQuizLastActivity(quiz_id=quiz_id, last_activity=last_activity)
+            for quiz_id, last_activity in results.items()
+        ]

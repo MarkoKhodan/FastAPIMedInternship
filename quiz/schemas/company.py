@@ -1,4 +1,6 @@
-from pydantic import BaseModel, EmailStr
+from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class CompanyBase(BaseModel):
@@ -41,3 +43,8 @@ class CompanyUpdated(BaseModel):
     description: str
     owner: int
     visibility: bool
+
+
+class CompanyUserLastActivity(BaseModel):
+    user_id: int
+    last_activity: datetime

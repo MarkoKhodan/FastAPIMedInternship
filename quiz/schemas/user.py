@@ -65,3 +65,8 @@ class UserCreated(BaseModel):
 
 class UserDelete(BaseModel):
     pass
+
+
+class UserAverageResult(BaseModel):
+    user_id: int
+    average_result: float
