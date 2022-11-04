@@ -76,7 +76,7 @@ async def user_average_quiz_result(
 @router.get(
     "/list_user_quizzes_last_activity", response_model=list[UserQuizLastActivity]
 )
-async def list_employees_last_activity(
+async def list_quizzes_last_activity(
     analytic_repo: AnalyticService = Depends(get_analytic_service),
 ) -> list[UserQuizLastActivity]:
-    return await analytic_repo.get_list_employees_last_activity()
+    return await analytic_repo.get_list_quizzes_last_activity()

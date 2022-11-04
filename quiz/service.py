@@ -1108,7 +1108,7 @@ class AnalyticService:
             for result in results
         ]
 
-    async def get_list_employees_last_activity(self) -> list[UserQuizLastActivity]:
+    async def get_list_quizzes_last_activity(self) -> list[UserQuizLastActivity]:
         email = await self.user_service.get_current_user_email(self.credentials)
         user = await self.user_service.get_user_by_email(email=email)
         all_results = self.db.query(Result).filter_by(user_id=user.id).all()
