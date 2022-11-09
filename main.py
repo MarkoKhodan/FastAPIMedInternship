@@ -32,3 +32,10 @@ async def shutdown():
     await redis_db.close()
 
 app.include_router(routes)
+
+@router.get(
+    "/test_pipeline",
+    status_code=status.HTTP_200_OK,
+)
+async def test_pipeline():
+    return {"status": "woeking"
