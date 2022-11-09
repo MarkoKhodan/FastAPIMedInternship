@@ -5,13 +5,13 @@ runtime: python3
 build:
   env:
     - name: DB_USER
-      value: "marko"
+      value: "dnqfylumjivebn"
     - name: DB_PASSWORD
-      value: "markomarko"
+      value: "14e5318df4cb616ea54cb940aa3e99f973259909d1e4e496e08d8f7f053b9ff1"
     - name: DB_NAME
-      value: "database"
+      value: "ddsfei1hi13v5n"
     - name: DB_HOST
-      value: "database.cl3izvauicsy.eu-west-1.rds.amazonaws.com"
+      value: "ec2-34-242-84-130.eu-west-1.compute.amazonaws.com"
     - name: REDIS_HOST
       value: "10633.c3.eu-west-1-2.ec2.cloud.redislabs.com"
     - name: REDIS_PORT
@@ -37,6 +37,31 @@ build:
       - alembic upgrade head 
       
 run:
+  env:
+    - name: DB_USER
+      value: "dnqfylumjivebn"
+    - name: DB_PASSWORD
+      value: "14e5318df4cb616ea54cb940aa3e99f973259909d1e4e496e08d8f7f053b9ff1"
+    - name: DB_NAME
+      value: "ddsfei1hi13v5n"
+    - name: DB_HOST
+      value: "ec2-34-242-84-130.eu-west-1.compute.amazonaws.com"
+    - name: REDIS_HOST
+      value: "10633.c3.eu-west-1-2.ec2.cloud.redislabs.com"
+    - name: REDIS_PORT
+      value: "10633"
+    - name: REDIS_PASSWORD
+      value: "w7v6XPSL6BhROoYYekYGGdle5mq5UUom"
+    - name: APP_SECRET_STRING
+      value: "eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81"
+    - name: DOMAIN
+      value: "dev-38rl6a10.us.auth0.com"
+    - name: API_AUDIENCE
+      value: "https://internship-auth0-example.com"
+    - name: ISSUER
+      value: "https://dev-38rl6a10.us.auth0.com/"
+    - name: ALGORITHMS
+      value: "RS256"
   network:
     port: 8000
   command: uvicorn main:app --reload
