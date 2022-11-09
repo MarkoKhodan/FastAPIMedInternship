@@ -39,6 +39,7 @@ build:
       - alembic upgrade head 
       
 run:
+  runtime-version: 3.10
   network:
     port: 8000
   command: uvicorn main:app --reload
