@@ -3,7 +3,7 @@ import json
 from quiz.models.db_models import Invite, Request
 
 
-def test_create_update_delete_company(client, token):
+def test_create_company(client, token):
     data = {"name": "string", "description": "string"}
 
     response = client.post(
@@ -18,6 +18,9 @@ def test_create_update_delete_company(client, token):
         "description": "string",
         "owner": 1,
     }
+
+
+def test_update_delete_company(client, token, company):
 
     data_to_update = {
         "name": "string123",
@@ -39,6 +42,8 @@ def test_create_update_delete_company(client, token):
         "visibility": True,
     }
 
+
+def test_delete_company(client, token, company):
     response = client.delete(
         "/company/delete", headers={"Authorization": f"Bearer {token}"}
     )

@@ -7,7 +7,8 @@ def test_quiz_avarege_result(
     token, client, db_session, quiz, user, result, datetime_now
 ):
     response = client.get(
-        "analytic/quiz_avarege_result/1", headers={"Authorization": f"Bearer {token}"}
+        f"analytic/quiz_avarege_result/{quiz.id}",
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert response.status_code == 200
@@ -21,10 +22,10 @@ def test_quiz_avarege_result(
 
 
 def test_employee_avarege_result(
-    token, client, db_session, quiz, user, result, datetime_now
+    token, client, db_session, quiz, user, result, datetime_now, company
 ):
     response = client.get(
-        "analytic/employee_avarege_result/1/1",
+        f"analytic/employee_avarege_result/{company.id}/{user.id}",
         headers={"Authorization": f"Bearer {token}"},
     )
 

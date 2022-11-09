@@ -114,14 +114,14 @@ def test_request(db_session, user, company):
 
 @pytest.fixture()
 def quiz(db_session, company):
-    quiz = Quiz(title="test", description="test_descr", company_id=1)
+    quiz = Quiz(title="test", description="test_descr", company_id=company.id)
     db_session.add(quiz)
     db_session.commit()
 
-    question_1 = Question(question_title="test1", quiz_id="1")
+    question_1 = Question(question_title="test1", quiz_id=quiz.id)
     db_session.add(question_1)
     db_session.commit()
-    question_2 = Question(question_title="test2", quiz_id="1")
+    question_2 = Question(question_title="test2", quiz_id=quiz.id)
     db_session.add(question_2)
     db_session.commit()
 

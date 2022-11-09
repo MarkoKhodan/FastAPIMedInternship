@@ -133,3 +133,4 @@ def test_quiz_pass(quiz, token, client, db_session, datetime_now, user):
         and result.average_result == 100
     )
     assert user.average_result == 100
+    assert user.average_result == user.correct_answers / user.passed_questions * 100
