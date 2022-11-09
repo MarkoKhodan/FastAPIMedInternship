@@ -12,16 +12,18 @@ from sqlalchemy.orm import sessionmaker
 import sys
 import os
 
-from core.auth import Auth
-from main import app
-from core.database import Base, get_db
-from quiz.models.db_models import Company, Quiz, Question, Answer, User, Request, Result
 
-auth_handler = Auth()
+
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # this is to include backend dir in sys.path so that we can import from db,main.py
 
+from main import app
+from core.database import Base, get_db
+from core.auth import Auth
+from quiz.models.db_models import Company, Quiz, Question, Answer, User, Request, Result
+
+auth_handler = Auth()
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test_db.db"
 engine = create_engine(
@@ -163,10 +165,6 @@ def result(user, company, quiz, db_session):
     db_session.commit()
 
     yield result
-
-
-FAKE_NOW = datetime.datetime(2012, 12, 12, 12, 12, 12)
-
 
 @pytest.fixture()
 def datetime_now():

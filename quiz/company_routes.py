@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, Security, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -18,10 +20,10 @@ from quiz.service import CompanyService, UserService, auth_required
 router = APIRouter()
 
 
-@router.get("/", response_model=list[CompanyBase])
+@router.get("/", response_model=List[CompanyBase])
 async def company_list(
     skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-) -> list[CompanyBase]:
+) -> List[CompanyBase]:
     company_repo = CompanyService(db=db)
     return await company_repo.get_company_list(skip=skip, limit=limit)
 
@@ -117,13 +119,13 @@ async def remove_from_admins(
     )
 
 
-@router.get("/requests", response_model=list[RequestBase])
+@router.get("/requests", response_model=List[RequestBase])
 async def requests_list(
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-) -> list[RequestBase]:
+) -> List[RequestBase]:
     company_repo = CompanyService(db=db)
     user_repo = UserService(db=db)
     return await company_repo.get_request_list(

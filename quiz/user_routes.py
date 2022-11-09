@@ -1,4 +1,6 @@
 import logging
+from typing import List
+
 from sqlalchemy.orm import Session
 from starlette import status
 
@@ -28,7 +30,7 @@ logger = logging.getLogger("quiz-logger")
 )
 async def login(
     user_details: UserSignIn, db: Session = Depends(get_db)
-) -> UserLogIn | HTTPException:
+) -> UserLogIn or HTTPException:
     user_repo = UserService(db=db)
     return await user_repo.login_user(user_details=user_details)
 
@@ -47,10 +49,10 @@ async def user_detail(pk: int, db: Session = Depends(get_db)) -> UserInfo:
     return await user_repo.get_detail_user(pk=pk)
 
 
-@router.get("/", response_model=list[UserInfo])
+@router.get("/", response_model=List[UserInfo])
 async def user_list(
     skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-) -> list[UserInfo]:
+) -> List[UserInfo]:
     user_repo = UserService(db=db)
     return await user_repo.get_user_list(skip=skip, limit=limit)
 
@@ -92,7 +94,7 @@ async def user_delete(
     return await user_repo.delete_user(credentials=credentials)
 
 
-@router.get("/invites", response_model=list[InviteBase])
+@router.get("/invites", response_model=List[InviteBase])
 async def invites_list(
     credentials: HTTPAuthorizationCredentials = Security(UserService.security),
     skip: int = 0,
