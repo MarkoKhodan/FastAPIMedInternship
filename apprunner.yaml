@@ -4,16 +4,14 @@ runtime: python3
 
 build:
   env:
-    - name: DATABASE_URL
-      value: "postgres://koiefdfz:smqLe6JS2cL4fqVH9NSvfeHPZ5rhZ0cx@mouse.db.elephantsql.com/koiefdfz"
     - name: DB_USER
-      value: "koiefdfz"
+      value: "marko"
     - name: DB_PASSWORD
-      value: "smqLe6JS2cL4fqVH9NSvfeHPZ5rhZ0cx"
+      value: "markomarko"
     - name: DB_NAME
-      value: "koiefdfz"
+      value: "database"
     - name: DB_HOST
-      value: "mouse.db.elephantsql.com"
+      value: "database.cl3izvauicsy.eu-west-1.rds.amazonaws.com"
     - name: REDIS_HOST
       value: "10633.c3.eu-west-1-2.ec2.cloud.redislabs.com"
     - name: REDIS_PORT
@@ -39,37 +37,7 @@ build:
       - alembic upgrade head 
       
 run:
-  env:
-    - name: DATABASE_URL
-      value: "postgres://koiefdfz:smqLe6JS2cL4fqVH9NSvfeHPZ5rhZ0cx@mouse.db.elephantsql.com/koiefdfz"
-    - name: DB_USER
-      value: "koiefdfz"
-    - name: DB_PASSWORD
-      value: "smqLe6JS2cL4fqVH9NSvfeHPZ5rhZ0cx"
-    - name: DB_NAME
-      value: "koiefdfz"
-    - name: DB_HOST
-      value: "mouse.db.elephantsql.com"
-    - name: REDIS_HOST
-      value: "10633.c3.eu-west-1-2.ec2.cloud.redislabs.com"
-    - name: REDIS_PORT
-      value: "10633"
-    - name: REDIS_PASSWORD
-      value: "w7v6XPSL6BhROoYYekYGGdle5mq5UUom"
-    - name: APP_SECRET_STRING
-      value: "eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81"
-    - name: DOMAIN
-      value: "dev-38rl6a10.us.auth0.com"
-    - name: API_AUDIENCE
-      value: "https://internship-auth0-example.com"
-    - name: ISSUER
-      value: "https://dev-38rl6a10.us.auth0.com/"
-    - name: ALGORITHMS
-      value: "RS256"
-  
   network:
     port: 8000
-
   command: uvicorn main:app --reload
-
   
