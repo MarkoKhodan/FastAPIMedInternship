@@ -7,6 +7,7 @@ from core.log_conf import log_config
 from routes import routes
 
 
+
 dictConfig(log_config)
 logger = logging.getLogger("quiz-logger")
 
@@ -29,6 +30,5 @@ async def startup():
 async def shutdown():
     await database.disconnect()
     await redis_db.close()
-
 
 app.include_router(routes)

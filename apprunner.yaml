@@ -41,5 +41,7 @@ build:
 run:
   network:
     port: 8000
+
   command: uvicorn main:app --reload
+
   

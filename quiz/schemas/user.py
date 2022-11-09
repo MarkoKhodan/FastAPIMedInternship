@@ -12,6 +12,7 @@ def validate_username(username: str) -> str:
 
 
 class UserBase(BaseModel):
+
     id: int
     password: constr(min_length=7, max_length=100)
     email: EmailStr
@@ -22,6 +23,7 @@ class UserInfo(BaseModel):
     id: int
     email: EmailStr
     username: str
+
 
 
 class UserCreate(BaseModel):
