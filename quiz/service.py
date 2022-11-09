@@ -489,7 +489,7 @@ class CompanyService:
             .all()
         )
         return [
-            RequestBase(id=request.id, user=request.user_id, company=request.company_id)
+            RequestBase(id=request.id, user=request.user, company=request.company)
             for request in request_list
         ]
 
