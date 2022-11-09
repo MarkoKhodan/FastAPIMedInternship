@@ -5,7 +5,7 @@ runtime: python3
 build:
   env:
     - name: DATABASE_URL
-      value: postgres://koiefdfz:smqLe6JS2cL4fqVH9NSvfeHPZ5rhZ0cx@mouse.db.elephantsql.com/koiefdfz
+      value: "postgres://koiefdfz:smqLe6JS2cL4fqVH9NSvfeHPZ5rhZ0cx@mouse.db.elephantsql.com/koiefdfz"
     - name: DB_USER
       value: "koiefdfz"
     - name: DB_PASSWORD
