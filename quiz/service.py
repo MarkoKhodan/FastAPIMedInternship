@@ -3,6 +3,8 @@ from datetime import datetime
 from functools import wraps
 from random import randint
 import logging
+from typing import List
+
 from fastapi import Security, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import EmailStr
@@ -71,7 +73,7 @@ class UserService:
     def __init__(self, db: Session):
         self.db = db
 
-    async def login_user(self, user_details: UserSignIn) -> UserLogIn | HTTPException:
+    async def login_user(self, user_details: UserSignIn) -> UserLogIn or HTTPException:
         user = await self.get_user_by_email(email=user_details.email)
         if user is None:
             raise HTTPException(status_code=404, detail="Invalid email")
@@ -80,7 +82,7 @@ class UserService:
         token = self.auth_handler.encode_token(user.email)
         return UserLogIn(token=token, username=user.username, email=user.email)
 
-    async def get_user_list(self, skip: int = 0, limit: int = 100) -> list[UserInfo]:
+    async def get_user_list(self, skip: int = 0, limit: int = 100) -> List[UserInfo]:
         user_list = self.db.query(User).offset(skip).limit(limit).all()
 
         return [
@@ -167,7 +169,7 @@ class UserService:
 
     async def get_invites_list(
         self, credentials: HTTPAuthorizationCredentials, skip: int = 0, limit: int = 100
-    ) -> list[InviteBase]:
+    ) -> List[InviteBase]:
         user = await self.get_current_user(credentials=credentials)
         invites_list = (
             self.db.query(Invite)
@@ -301,7 +303,7 @@ class CompanyService:
 
     async def get_company_list(
         self, skip: int = 0, limit: int = 100
-    ) -> list[CompanyBase]:
+    ) -> List[CompanyBase]:
         company_list = (
             self.db.query(Company)
             .filter_by(visibility=True)
@@ -477,7 +479,7 @@ class CompanyService:
         credentials: HTTPAuthorizationCredentials,
         skip: int = 0,
         limit: int = 100,
-    ) -> list[RequestBase]:
+    ) -> List[RequestBase]:
         user = await user_repo.get_current_user(credentials=credentials)
         company = self.db.query(Company).filter_by(owner=user.id).first()
         request_list = (
@@ -690,7 +692,7 @@ class QuizService:
 
     async def get_quiz_list(
         self, company_id: int, skip: int = 0, limit: int = 100
-    ) -> list[QuizList]:
+    ) -> List[QuizList]:
         quiz_list = (
             self.db.query(Quiz)
             .filter_by(company_id=company_id)
@@ -1023,7 +1025,7 @@ class AnalyticService:
         )
         return result_with_last_activity.created_at
 
-    async def get_quiz_average_results(self, quiz_id: int) -> list[QuizResultAvarage]:
+    async def get_quiz_average_results(self, quiz_id: int) -> List[QuizResultAvarage]:
         email = await self.user_service.get_current_user_email(self.credentials)
         user = await self.user_service.get_user_by_email(email=email)
         quiz = self.db.query(Quiz).filter_by(id=quiz_id).first()
@@ -1042,7 +1044,7 @@ class AnalyticService:
 
     async def get_employee_avarege_results(
         self, company_id: int, user_id: int
-    ) -> list[UserResultAvarage]:
+    ) -> List[UserResultAvarage]:
         email = await self.user_service.get_current_user_email(self.credentials)
         user = await self.user_service.get_user_by_email(email=email)
         company = self.db.query(Company).filter_by(id=company_id).first()
@@ -1070,7 +1072,7 @@ class AnalyticService:
 
     async def get_employee_last_activity_list(
         self, company_id: int
-    ) -> list[CompanyUserLastActivity]:
+    ) -> List[CompanyUserLastActivity]:
         email = await self.user_service.get_current_user_email(self.credentials)
         user = await self.user_service.get_user_by_email(email=email)
         company = self.db.query(Company).filter_by(id=company_id).first()
@@ -1092,7 +1094,7 @@ class AnalyticService:
 
     async def get_user_average_quiz_result(
         self, quiz_id: int
-    ) -> list[UserQuizResultAvarage]:
+    ) -> List[UserQuizResultAvarage]:
         email = await self.user_service.get_current_user_email(self.credentials)
         user = await self.user_service.get_user_by_email(email=email)
         results = (
@@ -1108,7 +1110,7 @@ class AnalyticService:
             for result in results
         ]
 
-    async def get_list_quizzes_last_activity(self) -> list[UserQuizLastActivity]:
+    async def get_list_quizzes_last_activity(self) -> List[UserQuizLastActivity]:
         email = await self.user_service.get_current_user_email(self.credentials)
         user = await self.user_service.get_user_by_email(email=email)
         all_results = self.db.query(Result).filter_by(user_id=user.id).all()

@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Security, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -62,13 +64,13 @@ async def quiz_update(
     )
 
 
-@router.get("/{company_id}", response_model=list[QuizList])
+@router.get("/{company_id}", response_model=List[QuizList])
 async def quiz_list(
     company_id: int,
     skip: int = 0,
     limit: int = 100,
     quiz_repo: QuizService = Depends(get_quiz_service),
-) -> list[QuizList]:
+) -> List[QuizList]:
     return await quiz_repo.get_quiz_list(
         company_id=int(company_id), skip=skip, limit=limit
     )

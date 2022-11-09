@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from typing import List
 from pydantic import BaseModel
 
 
@@ -9,7 +9,7 @@ class CompanyBase(BaseModel):
     description: str
     visibility: bool
     owner: int
-    employees: list[int]
+    employees: List[int]
 
 
 class CompanyList(BaseModel):

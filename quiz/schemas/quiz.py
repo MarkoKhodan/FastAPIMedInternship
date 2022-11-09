@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, conlist, validator
 
@@ -64,4 +64,4 @@ class QuizQuestions(BaseModel):
 
 
 class QuizPass(BaseModel):
-    answers: list[QuestionPass]
+    answers: List[QuestionPass]

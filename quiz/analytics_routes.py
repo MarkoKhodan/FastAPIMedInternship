@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Security, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -22,23 +24,23 @@ def get_analytic_service(
     return AnalyticService(db=db, credentials=credentials)
 
 
-@router.get("/quiz_avarege_result/{quiz_id}", response_model=list[QuizResultAvarage])
+@router.get("/quiz_avarege_result/{quiz_id}", response_model=List[QuizResultAvarage])
 async def quiz_avarege_result(
     quiz_id: int,
     analytic_repo: AnalyticService = Depends(get_analytic_service),
-) -> list[QuizResultAvarage]:
+) -> List[QuizResultAvarage]:
     return await analytic_repo.get_quiz_average_results(quiz_id=quiz_id)
 
 
 @router.get(
     "/employee_avarege_result/{company_id}/{user_id}",
-    response_model=list[UserResultAvarage],
+    response_model=List[UserResultAvarage],
 )
 async def employee_avarege_result(
     user_id: int,
     company_id: int,
     analytic_repo: AnalyticService = Depends(get_analytic_service),
-) -> list[UserResultAvarage]:
+) -> List[UserResultAvarage]:
     return await analytic_repo.get_employee_avarege_results(
         user_id=user_id, company_id=company_id
     )
@@ -46,12 +48,12 @@ async def employee_avarege_result(
 
 @router.get(
     "/list_employees_last_activity/{company_id}",
-    response_model=list[CompanyUserLastActivity],
+    response_model=List[CompanyUserLastActivity],
 )
 async def list_employees_last_activity(
     company_id: int,
     analytic_repo: AnalyticService = Depends(get_analytic_service),
-) -> list[CompanyUserLastActivity]:
+) -> List[CompanyUserLastActivity]:
     return await analytic_repo.get_employee_last_activity_list(company_id=company_id)
 
 
@@ -64,19 +66,19 @@ async def user_average_result(
 
 
 @router.get(
-    "/user_average_quiz_result/{quiz_id}", response_model=list[UserQuizResultAvarage]
+    "/user_average_quiz_result/{quiz_id}", response_model=List[UserQuizResultAvarage]
 )
 async def user_average_quiz_result(
     quiz_id: int,
     analytic_repo: AnalyticService = Depends(get_analytic_service),
-) -> list[UserQuizResultAvarage]:
+) -> List[UserQuizResultAvarage]:
     return await analytic_repo.get_user_average_quiz_result(quiz_id=quiz_id)
 
 
 @router.get(
-    "/list_user_quizzes_last_activity", response_model=list[UserQuizLastActivity]
+    "/list_user_quizzes_last_activity", response_model=List[UserQuizLastActivity]
 )
 async def list_quizzes_last_activity(
     analytic_repo: AnalyticService = Depends(get_analytic_service),
-) -> list[UserQuizLastActivity]:
+) -> List[UserQuizLastActivity]:
     return await analytic_repo.get_list_quizzes_last_activity()
