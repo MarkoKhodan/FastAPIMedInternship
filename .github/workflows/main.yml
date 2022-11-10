@@ -1,0 +1,26 @@
+name: Ci-CD-pipeline-TO-AWSELASTICBEANSTALKS
+env:
+  S3_BUCKET_NAME : "medduzen-internship-packages"
+  EB_APLICATION_NAME : "FastApi-Meduzzen"
+  EB_ENV_NAME: "Fastapimeduzzen-env"
+  DEPLOY_PACKAGE_NAME: "FastApi-Meduzzen_${{ github.sha }}.zip"
+  AWS_REGION_NAME: "eu-west-1"
+
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  ci-part:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Git clone repo
+      uses: actions/checkout@v1
+      
+    - name: Create zip deploymen packege
+      run: zip -r ${{ env.DEPLOY_PACKAGE_NAME }} ./ -x *.git*
+    
+      
