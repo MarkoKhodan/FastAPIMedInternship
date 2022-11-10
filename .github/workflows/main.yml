@@ -34,5 +34,5 @@ jobs:
       run: aws s3 cp ${{ env.DEPLOY_PACKAGE_NAME }}  s3://${{ env.S3_BUCKET_NAME }}/
     
     - name: Print happy message for Ci finish 
-      run: Echo "Ci Pipeline part finished"
+      run: echo "Ci Pipeline part finished"
         
