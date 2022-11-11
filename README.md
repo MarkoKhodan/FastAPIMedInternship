@@ -1,4 +1,4 @@
-# FastAPI MedInternship Project
+# FastAPI MedInternship Project.
 
 ## Installation 
 
